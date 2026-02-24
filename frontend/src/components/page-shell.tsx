@@ -1,4 +1,4 @@
-import { PropsWithChildren, useMemo, useState } from 'react'
+import { PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/state/session-store'
@@ -15,6 +15,7 @@ export function PageShell({ children }: PropsWithChildren) {
   const navigate = useNavigate()
   const setAccessToken = useSessionStore((s) => s.setAccessToken)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const profileQuery = useQuery({
     queryKey: ['profile', 'shell'],
     queryFn: async () => {
@@ -50,6 +51,33 @@ export function PageShell({ children }: PropsWithChildren) {
     navigate('/auth', { replace: true })
   }
 
+  useEffect(() => {
+    function onClickOutside(event: MouseEvent) {
+      if (!menuRef.current) {
+        return
+      }
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false)
+      }
+    }
+
+    if (menuOpen) {
+      document.addEventListener('mousedown', onClickOutside)
+      document.addEventListener('keydown', onKeyDown)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-6 sm:px-6">
       <header className="mb-6 rounded-2xl border border-[#2d3a2f] bg-[#111714]/90 p-4 backdrop-blur">
@@ -66,7 +94,7 @@ export function PageShell({ children }: PropsWithChildren) {
             <NavLink className={({ isActive }) => navClass('pv-chip rounded-full px-3 py-1.5', isActive)} to="/moderation">Moderação</NavLink>
             </nav>
 
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 className="pv-chip inline-flex items-center gap-2 rounded-full px-2.5 py-1.5"
                 onClick={() => setMenuOpen((prev) => !prev)}
