@@ -26,11 +26,11 @@ type Profile = {
 }
 
 const prayerActions = [
-  { type: 'HAIL_MARY', label: 'Ave Maria' },
-  { type: 'OUR_FATHER', label: 'Pai Nosso' },
-  { type: 'GLORY_BE', label: 'Glória' },
-  { type: 'ROSARY_DECADE', label: 'Terço' },
-  { type: 'ROSARY_FULL', label: 'Rosário' }
+  { type: 'HAIL_MARY', emoji: '🙏', label: 'Ave Maria' },
+  { type: 'OUR_FATHER', emoji: '✝️', label: 'Pai Nosso' },
+  { type: 'GLORY_BE', emoji: '✨', label: 'Glória' },
+  { type: 'ROSARY_DECADE', emoji: '📿', label: 'Terço' },
+  { type: 'ROSARY_FULL', emoji: '🕊️', label: 'Rosário' }
 ]
 
 export function RequestDetailPage() {
@@ -174,7 +174,7 @@ export function RequestDetailPage() {
                     onClick={() => pray.mutate(action.type)}
                     type="button"
                   >
-                    {action.label} ({requestQuery.data?.prayerTypeCounts?.[action.type] ?? 0})
+                    {action.emoji} {action.label} ({requestQuery.data?.prayerTypeCounts?.[action.type] ?? 0})
                   </button>
                 ))}
               </div>
