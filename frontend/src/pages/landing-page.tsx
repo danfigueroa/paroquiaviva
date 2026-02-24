@@ -5,15 +5,16 @@ import { PageShell } from '@/components/page-shell'
 export function LandingPage() {
   return (
     <PageShell>
-      <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold">Pedidos de oração para sua comunidade paroquial</h1>
-        <p className="mt-3 text-sm text-slate-700">Compartilhe pedidos, apoie outras pessoas e modere com segurança.</p>
-        <div className="mt-5 flex gap-3">
+      <section className="pv-panel rounded-3xl p-6 sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Espaço comunitário</p>
+        <h1 className="pv-title mt-3 text-4xl font-bold leading-tight text-secondary">Rede social de oração para fortalecer laços e fé.</h1>
+        <p className="pv-muted mt-4 max-w-2xl text-sm">Crie pedidos, acompanhe grupos, conecte amigos e viva a espiritualidade em comunidade com uma experiência moderna e acolhedora.</p>
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link to="/auth">
             <Button>Entrar</Button>
           </Link>
           <Link to="/feed">
-            <Button variant="secondary">Abrir mural</Button>
+            <Button variant="secondary">Abrir feed</Button>
           </Link>
         </div>
       </section>

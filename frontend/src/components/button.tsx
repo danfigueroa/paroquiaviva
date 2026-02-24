@@ -13,8 +13,10 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     <button
       ref={ref}
       className={cn(
-        'inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium transition',
-        variant === 'primary' ? 'bg-primary text-white hover:opacity-90' : 'bg-slate-200 text-ink hover:bg-slate-300',
+        'inline-flex h-10 items-center justify-center rounded-full px-5 text-sm font-semibold transition duration-200 disabled:opacity-60',
+        variant === 'primary'
+          ? 'bg-accent text-[#231815] hover:brightness-105'
+          : 'border border-[#516451] bg-[#1a211d] text-secondary hover:border-[#6f856f]',
         className
       )}
       {...props}

@@ -14,11 +14,19 @@ export function RequestDetailPage() {
 
   return (
     <PageShell>
-      <h1 className="text-xl font-semibold">Pedido de Oração</h1>
-      <p className="mt-2 text-sm text-slate-700">ID do pedido: {id}</p>
-      <Button className="mt-4" onClick={() => pray.mutate()} disabled={pray.isPending}>
-        {pray.isPending ? 'Enviando...' : 'Eu orei'}
-      </Button>
+      <section className="pv-panel rounded-3xl p-6 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Detalhe</p>
+        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Pedido de oração</h1>
+        <p className="pv-muted mt-2 text-sm">ID do pedido: {id}</p>
+
+        <div className="mt-5 rounded-2xl border border-[#2d3a2f] bg-[#121715] p-5">
+          <p className="pv-muted text-sm">Interação comunitária</p>
+          <p className="mt-2 text-base text-secondary">Registre que você orou por esta intenção.</p>
+          <Button className="mt-4" disabled={pray.isPending} onClick={() => pray.mutate()}>
+            {pray.isPending ? 'Registrando...' : 'Eu orei'}
+          </Button>
+        </div>
+      </section>
     </PageShell>
   )
 }

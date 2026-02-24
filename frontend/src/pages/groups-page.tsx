@@ -1,0 +1,168 @@
+import { FormEvent, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { PageShell } from '@/components/page-shell'
+import { Input } from '@/components/input'
+import { TextArea } from '@/components/text-area'
+import { Button } from '@/components/button'
+import { api } from '@/lib/api'
+
+type Group = {
+  id: string
+  name: string
+  description: string
+  joinPolicy: 'OPEN' | 'REQUEST' | 'INVITE_ONLY'
+}
+
+type JoinRequest = {
+  id: string
+  userId: string
+  requestedAt: string
+}
+
+export function GroupsPage() {
+  const client = useQueryClient()
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [joinPolicy, setJoinPolicy] = useState<Group['joinPolicy']>('REQUEST')
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('')
+
+  const groupsQuery = useQuery({
+    queryKey: ['groups', 'mine'],
+    queryFn: async () => {
+      const res = await api.get<{ items: Group[] }>('/groups')
+      return res.data.items
+    }
+  })
+
+  const createGroup = useMutation({
+    mutationFn: async () => {
+      await api.post('/groups', {
+        name,
+        description,
+        joinPolicy,
+        imageUrl: null
+      })
+    },
+    onSuccess: async () => {
+      setName('')
+      setDescription('')
+      await client.invalidateQueries({ queryKey: ['groups', 'mine'] })
+    }
+  })
+
+  const selectedGroup = useMemo(() => {
+    if (selectedGroupId) {
+      return selectedGroupId
+    }
+    return (groupsQuery.data ?? [])[0]?.id ?? ''
+  }, [groupsQuery.data, selectedGroupId])
+
+  const requestsQuery = useQuery({
+    queryKey: ['group-join-requests', selectedGroup],
+    enabled: !!selectedGroup,
+    queryFn: async () => {
+      const res = await api.get<{ items: JoinRequest[] }>(`/groups/${selectedGroup}/join-requests`)
+      return res.data.items
+    }
+  })
+
+  const approveRequest = useMutation({
+    mutationFn: async (requestId: string) => {
+      await api.post(`/groups/${selectedGroup}/join-requests/${requestId}/approve`)
+    },
+    onSuccess: async () => {
+      await requestsQuery.refetch()
+    }
+  })
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    createGroup.mutate()
+  }
+
+  return (
+    <PageShell>
+      <section className="pv-panel rounded-3xl p-6 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Rede de grupos</p>
+        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Comunidades de oração</h1>
+        <p className="pv-muted mt-2 text-sm">Crie grupos, organize pedidos por comunidade e aprove novos membros quando você for admin.</p>
+      </section>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="pv-panel rounded-3xl p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="pv-title text-xl font-semibold text-secondary">Meus grupos</h2>
+            {selectedGroup && (
+              <Link className="text-sm text-[#f2c5b6]" to={`/groups/${selectedGroup}`}>
+                Abrir gestão
+              </Link>
+            )}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {(groupsQuery.data ?? []).map((group) => (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => setSelectedGroupId(group.id)}
+                className={`w-full rounded-2xl border p-4 text-left transition ${selectedGroup === group.id ? 'border-[#f5e6cc] bg-[#1f2521]' : 'border-[#2d3a2f] bg-[#121715] hover:border-[#4a5f4b]'}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-base font-semibold text-secondary">{group.name}</h3>
+                  <span className="rounded-full border border-[#3e4d3f] bg-[#182018] px-2.5 py-1 text-[11px] font-semibold text-[#bcd0b4]">{group.joinPolicy}</span>
+                </div>
+                <p className="pv-muted mt-2 text-sm">{group.description}</p>
+              </button>
+            ))}
+
+            {!groupsQuery.isLoading && (groupsQuery.data ?? []).length === 0 && (
+              <p className="pv-muted rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4 text-sm">Você ainda não participa de grupos.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="pv-panel rounded-3xl p-6">
+          <h2 className="pv-title text-xl font-semibold text-secondary">Criar grupo</h2>
+          <p className="pv-muted mt-2 text-sm">Defina um espaço próprio para pedidos e intenções da sua comunidade.</p>
+          <form onSubmit={onSubmit} className="mt-4 space-y-3">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do grupo" />
+            <TextArea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição do grupo" />
+            <select
+              value={joinPolicy}
+              onChange={(e) => setJoinPolicy(e.target.value as Group['joinPolicy'])}
+              className="h-11 w-full rounded-xl border border-[#344434] bg-[#101612] px-3 text-sm text-secondary"
+            >
+              <option value="OPEN">Aberto</option>
+              <option value="REQUEST">Solicitação</option>
+              <option value="INVITE_ONLY">Somente convite</option>
+            </select>
+            <Button disabled={createGroup.isPending} type="submit">
+              {createGroup.isPending ? 'Criando...' : 'Criar grupo'}
+            </Button>
+          </form>
+        </section>
+      </div>
+
+      <section className="pv-panel mt-5 rounded-3xl p-6">
+        <h2 className="pv-title text-xl font-semibold text-secondary">Solicitações pendentes</h2>
+        <p className="pv-muted mt-2 text-sm">Aprovação de novos membros no grupo selecionado.</p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {(requestsQuery.data ?? []).map((request) => (
+            <article key={request.id} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
+              <p className="text-sm text-secondary">Usuário: {request.userId}</p>
+              <p className="pv-muted mt-1 text-xs">Solicitado em {new Date(request.requestedAt).toLocaleString('pt-BR')}</p>
+              <Button className="mt-3" onClick={() => approveRequest.mutate(request.id)}>
+                Aprovar membro
+              </Button>
+            </article>
+          ))}
+          {!requestsQuery.isLoading && (requestsQuery.data ?? []).length === 0 && (
+            <p className="pv-muted rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4 text-sm sm:col-span-2">Nenhuma solicitação pendente para o grupo selecionado.</p>
+          )}
+        </div>
+      </section>
+    </PageShell>
+  )
+}

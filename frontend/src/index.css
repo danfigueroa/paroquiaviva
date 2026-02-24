@@ -2,6 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #0d100f;
+  --bg-soft: #131816;
+  --panel: #151a18;
+  --panel-border: #243128;
+  --primary: #2d4f1e;
+  --secondary: #f5e6cc;
+  --accent: #e27d60;
+  --slate: #4a4a4a;
+  --text: #f5e6cc;
+  --text-muted: #c2b6a3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
-  color: #0f172a;
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(1000px 500px at 10% -5%, rgba(45, 79, 30, 0.36), transparent 60%),
+    radial-gradient(900px 450px at 100% 0%, rgba(226, 125, 96, 0.2), transparent 55%),
+    linear-gradient(180deg, #0d100f 0%, #0f1412 100%);
+  font-family: "Plus Jakarta Sans", "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+.pv-panel {
+  background: linear-gradient(180deg, rgba(21, 26, 24, 0.95), rgba(18, 23, 21, 0.95));
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.4);
+}
+
+.pv-title {
+  letter-spacing: -0.03em;
+}
+
+.pv-muted {
+  color: var(--text-muted);
+}
+
+.pv-chip {
+  border: 1px solid #3a493a;
+  background: rgba(24, 32, 28, 0.8);
+}
+
+.pv-chip-active {
+  border-color: var(--secondary);
+  background: var(--secondary);
+  color: #20241f;
 }
