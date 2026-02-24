@@ -6,10 +6,14 @@ import { Button } from '@/components/button'
 
 type FeedItem = {
   id: string
+  authorId: string
+  authorUsername?: string
+  authorDisplayName?: string
   title: string
   body: string
   category: string
   prayedCount: number
+  prayerTypeCounts?: Record<string, number>
 }
 
 type FeedScope = 'home' | 'public' | 'groups' | 'friends'
@@ -20,6 +24,23 @@ const tabs: Array<{ scope: FeedScope; label: string; endpoint: string; requiresA
   { scope: 'friends', label: 'Amigos', endpoint: '/feed/friends', requiresAuth: true },
   { scope: 'public', label: 'Público', endpoint: '/feed/public', requiresAuth: false }
 ]
+
+const prayerActions = [
+  { type: 'HAIL_MARY', label: 'Ave Maria' },
+  { type: 'OUR_FATHER', label: 'Pai Nosso' },
+  { type: 'GLORY_BE', label: 'Glória' },
+  { type: 'ROSARY_DECADE', label: 'Terço' },
+  { type: 'ROSARY_FULL', label: 'Rosário' }
+]
+
+const categoryLabel: Record<string, string> = {
+  HEALTH: 'Saúde',
+  FAMILY: 'Família',
+  WORK: 'Trabalho',
+  GRIEF: 'Luto',
+  THANKSGIVING: 'Ação de graças',
+  OTHER: 'Outros'
+}
 
 export function FeedPage() {
   const queryClient = useQueryClient()
@@ -36,8 +57,8 @@ export function FeedPage() {
     }
   })
   const prayMutation = useMutation({
-    mutationFn: async (requestID: string) => {
-      await api.post(`/requests/${requestID}/pray`)
+    mutationFn: async ({ requestID, actionType }: { requestID: string; actionType: string }) => {
+      await api.post(`/requests/${requestID}/pray`, { actionType })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['feed'] })
@@ -75,7 +96,7 @@ export function FeedPage() {
         </div>
       </section>
 
-      <section className="mt-5 space-y-3">
+      <section className="mt-5 w-full space-y-3">
         {query.isLoading && <div className="pv-panel rounded-2xl p-4 text-sm pv-muted">Carregando intenções...</div>}
 
         {isUnauthorized && activeTab.requiresAuth && (
@@ -88,19 +109,39 @@ export function FeedPage() {
           <div className="pv-panel rounded-2xl p-4 text-sm pv-muted">Ainda não existem pedidos neste feed.</div>
         )}
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="space-y-3">
           {items.map((item) => (
-            <article key={item.id} className="pv-panel flex h-full flex-col rounded-2xl p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-secondary">{item.title}</h2>
-                <span className="rounded-full border border-[#715647] bg-[#2b201b] px-3 py-1 text-xs font-semibold text-[#f0c7b8]">{item.category}</span>
+            <article key={item.id} className="pv-panel rounded-2xl p-5">
+              <div className="flex items-start gap-3">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#3f2a24] text-sm font-bold text-[#f4d6cb]">
+                  {(item.authorDisplayName?.[0] || item.authorUsername?.[0] || 'U').toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="truncate text-sm font-semibold text-secondary">{item.authorDisplayName || 'Membro'}</p>
+                    <p className="truncate text-xs text-[#c4ad9d]">@{item.authorUsername || 'usuario'}</p>
+                    <span className="rounded-full border border-[#715647] bg-[#2b201b] px-2.5 py-0.5 text-[11px] font-semibold text-[#f0c7b8]">{categoryLabel[item.category] || item.category}</span>
+                  </div>
+                  <Link className="mt-2 block text-lg font-semibold text-secondary hover:text-[#f0c7b8]" to={`/requests/${item.id}`}>{item.title}</Link>
+                  <p className="pv-muted mt-2 text-sm leading-relaxed">{item.body}</p>
+                </div>
               </div>
-                <p className="pv-muted mt-3 text-sm leading-relaxed">{item.body}</p>
-              <div className="mt-auto flex items-center justify-between pt-5">
+              <div className="mt-4 flex items-center justify-between">
                 <p className="text-xs text-[#98ab90]">Orações registradas: {item.prayedCount}</p>
-                <Button disabled={prayMutation.isPending} onClick={() => prayMutation.mutate(item.id)}>
-                  Eu orei
-                </Button>
+                <Link className="text-xs text-[#f2c5b6] hover:text-[#ffd8cc]" to={`/requests/${item.id}`}>Ver detalhes</Link>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {prayerActions.map((action) => (
+                  <button
+                    key={`${item.id}-${action.type}`}
+                    className="pv-chip rounded-full px-3 py-1 text-xs"
+                    disabled={prayMutation.isPending}
+                    onClick={() => prayMutation.mutate({ requestID: item.id, actionType: action.type })}
+                    type="button"
+                  >
+                    {action.label} ({item.prayerTypeCounts?.[action.type] ?? 0})
+                  </button>
+                ))}
               </div>
             </article>
           ))}
