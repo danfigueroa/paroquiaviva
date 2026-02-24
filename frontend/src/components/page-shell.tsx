@@ -1,6 +1,6 @@
 import { PropsWithChildren, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/state/session-store'
 import { getSupabaseClient } from '@/lib/supabase'
 import { api } from '@/lib/api'
@@ -34,6 +34,13 @@ export function PageShell({ children }: PropsWithChildren) {
   const username = profileQuery.data?.username ? `@${profileQuery.data.username}` : ''
   const avatarLetter = (displayName[0] || 'U').toUpperCase()
 
+  function navClass(baseClass: string, isActive: boolean) {
+    if (isActive) {
+      return `${baseClass} pv-chip-active`
+    }
+    return baseClass
+  }
+
   async function onLogout() {
     const supabase = getSupabaseClient()
     if (supabase) {
@@ -52,11 +59,11 @@ export function PageShell({ children }: PropsWithChildren) {
           </Link>
           <div className="flex items-center gap-2">
             <nav className="flex flex-wrap gap-2 text-sm">
-            <Link className="pv-chip rounded-full px-3 py-1.5" to="/feed">Mural</Link>
-            <Link className="pv-chip rounded-full px-3 py-1.5" to="/friends">Amigos</Link>
-            <Link className="pv-chip rounded-full px-3 py-1.5" to="/requests/new">Novo Pedido</Link>
-            <Link className="pv-chip rounded-full px-3 py-1.5" to="/groups">Grupos</Link>
-            <Link className="pv-chip rounded-full px-3 py-1.5" to="/moderation">Moderação</Link>
+            <NavLink className={({ isActive }) => navClass('pv-chip rounded-full px-3 py-1.5', isActive)} to="/feed">Mural</NavLink>
+            <NavLink className={({ isActive }) => navClass('pv-chip rounded-full px-3 py-1.5', isActive)} to="/friends">Amigos</NavLink>
+            <NavLink className={({ isActive }) => navClass('pv-chip rounded-full px-3 py-1.5', isActive)} to="/requests/new">Novo Pedido</NavLink>
+            <NavLink className={({ isActive }) => navClass('pv-chip rounded-full px-3 py-1.5', isActive)} to="/groups">Grupos</NavLink>
+            <NavLink className={({ isActive }) => navClass('pv-chip rounded-full px-3 py-1.5', isActive)} to="/moderation">Moderação</NavLink>
             </nav>
 
             <div className="relative">
@@ -65,7 +72,7 @@ export function PageShell({ children }: PropsWithChildren) {
                 onClick={() => setMenuOpen((prev) => !prev)}
                 type="button"
               >
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#203225] text-xs font-bold text-[#d9e5d0]">{avatarLetter}</span>
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#3f2a24] text-xs font-bold text-[#f4d6cb]">{avatarLetter}</span>
                 <span className="hidden max-w-[150px] truncate text-sm text-secondary sm:inline">{displayName}</span>
               </button>
 
