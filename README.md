@@ -1,26 +1,24 @@
 # Paróquia Viva
 
-Paróquia Viva is a prayer requests wall for parish communities, focused on safe sharing, group-based visibility, and moderation workflows.
+Paróquia Viva is a prayer social platform for parish communities, focused on prayer requests, friendship connections, groups, and safe moderation workflows.
 
-## Product Summary
+## Product Direction
 
-Paróquia Viva allows users to post prayer requests with privacy controls, engage through an `I prayed` action, and organize requests inside groups with moderation rules.
+Paróquia Viva combines social graph and community feeds with prayer-specific privacy and moderation:
+- Home feed centered on friends and group content
+- Public feed as secondary discovery surface
+- Group ownership and join approval flow
+- Prayer interactions with anti-abuse controls
 
-Core principles:
-- Simple architecture and maintainable code
-- Real-world production readiness for MVP
-- Abuse prevention and moderation auditability
-
-## Tech Stack
+## Stack
 
 - Backend: Go, chi, pgx, handwritten SQL
 - Frontend: React, TypeScript, Vite, React Query, Tailwind
 - Database and Auth: Supabase Postgres + Supabase Auth
-- Migrations: golang-migrate (SQL files)
+- Migrations: golang-migrate
 
 ## Repository Structure
 
-- `backend`
 - `backend/cmd/api`
 - `backend/internal/config`
 - `backend/internal/http`
@@ -29,238 +27,164 @@ Core principles:
 - `backend/internal/models`
 - `backend/internal/auth`
 - `backend/internal/db/migrations`
-- `frontend`
 - `frontend/src/app`
 - `frontend/src/pages`
 - `frontend/src/components`
 - `docs/product-spec.md`
 
-## Current Status
+## Implementation Status
 
 ### Implemented
 
-- Base backend scaffold with layered flow: handlers -> services -> repositories
-- HTTP middlewares: request id, structured logging, auth, basic rate limiting
-- Supabase JWT validation via JWKS with cache
-- Initial REST routes scaffold:
-  - `GET /health`
-  - `GET /api/v1/feed`
-  - `GET /api/v1/profile`
-  - `PATCH /api/v1/profile`
+- Backend layered architecture: handlers -> services -> repositories
+- Supabase JWT validation with JWKS cache
+- HTTP middlewares:
+  - request id
+  - structured logging
+  - auth required/optional
+  - CORS for local frontend origins
+  - IP rate limiting
+- User profile API with unique username support
+- Auth user auto-sync from Supabase token to internal `users` table
+- Feed endpoints:
+  - `GET /api/v1/feed/public`
+  - `GET /api/v1/feed/home`
+  - `GET /api/v1/feed/groups`
+  - `GET /api/v1/feed/friends`
+- Prayer requests:
   - `POST /api/v1/requests`
   - `POST /api/v1/requests/{id}/pray`
-  - `GET /api/v1/moderation/queue`
-- SQL migration with required core tables and indexes
-- Frontend route scaffold for all required pages
-- React Query wiring and minimal UI components
-- CI workflow for backend and frontend build validation
+  - validation for category, visibility, and group membership checks
+- Groups:
+  - `GET /api/v1/groups`
+  - `POST /api/v1/groups`
+  - `POST /api/v1/groups/{id}/join-requests`
+  - `GET /api/v1/groups/{id}/join-requests`
+  - `POST /api/v1/groups/{id}/join-requests/{requestId}/approve`
+- Friends:
+  - `GET /api/v1/friends`
+  - `GET /api/v1/friends/requests`
+  - `POST /api/v1/friends/requests`
+  - `POST /api/v1/friends/requests/{requestId}/accept`
+  - `GET /api/v1/users/search`
+  - username-first friend request flow (`@username`)
+- Frontend:
+  - Supabase auth page with sign in, sign up, passwordless, reset password
+  - protected routes and logout flow
+  - redesigned dark UI system across key pages
+  - pages: feed, groups, friends, new request, profile, moderation, auth
+  - profile form improved with clear field purpose and username validation
+  - feed action "Eu orei" connected to API
+- Database migrations:
+  - initial schema
+  - social tables (`friendships`, `group_join_requests`)
+  - auth profile sync trigger
+  - username column and uniqueness support
+  - username trigger conflict fix
 
-### Pending
+### Partially Implemented
 
-- Full Supabase Auth flow integration in frontend (`/auth` page with real flows)
-- Group management endpoints and role enforcement
-- Moderation actions endpoints and queue transitions
-- Notifications pipeline (email in MVP, in-app in v1)
-- Full test suite (unit, integration, e2e)
-- Deployment automation
+- Moderation queue API exists but returns empty placeholder
+- Public prayer moderation state (`PENDING_REVIEW`) exists, but moderator actions are not complete
+- UI for moderation exists, but no full moderation workflow yet
 
-## Development Phases
+### Not Implemented Yet
 
-### Phase 0 Setup
+- Full moderation action pipeline (`approve`, `reject`, `request_changes`, `remove`, `ban`)
+- Notifications domain (email outcomes and in-app)
+- Comment system
+- Search and pagination in all feeds
+- Automated deployment and infra environments
+- Full automated test coverage (unit/integration/e2e)
+
+## Phase Plan And Updated Checklist
+
+## Phase 0 Setup
+
+Status: `DONE`
+
+Scope completed:
+- Monorepo setup with backend and frontend
+- Core architecture and project structure
+- Supabase integration baseline
+- Migration flow and local run scripts
+- CI baseline for backend tests and frontend build
+
+What remains:
+- Add lint jobs for Go and frontend in CI
+- Add migration drift/check job in CI
+- Add deploy preview checks
+
+Prompt for next Phase 0 hardening:
+```text
+Harden Phase 0 CI: add Go lint, frontend lint, migration check, and fail-fast workflow gates. Keep existing architecture and do not introduce new frameworks.
+```
+
+## Phase 1 MVP
 
 Status: `IN PROGRESS`
 
-Checklist:
-- [x] Monorepo with `backend` and `frontend`
-- [x] Base backend architecture (`handlers -> services -> repositories`)
-- [x] Base frontend routing and API client
-- [x] Supabase JWT validation by JWKS
-- [x] Initial SQL migration applied in Supabase
-- [x] Local run and smoke validation (`/health`, `/feed`, `/profile` unauthorized)
-- [x] CI workflow for backend test and frontend build
-- [ ] Add backend lint in CI
-- [ ] Add frontend lint in CI
-- [ ] Add migration check in CI
-- [ ] Add deployment skeleton and environment mapping
+Implemented in Phase 1:
+- Auth UI and session handling
+- Profile update flow with username
+- Group creation and join request approvals
+- Prayer creation and prayed interaction with anti-abuse window
+- Friends model and username-based request flow
+- Home/groups/friends/public feed separation
 
-Technical detail:
-- Endpoints currently available:
-  - `GET /health`
-  - `GET /api/v1/feed`
-  - `GET /api/v1/profile`
-  - `PATCH /api/v1/profile`
-  - `POST /api/v1/requests`
-  - `POST /api/v1/requests/{id}/pray`
-  - `GET /api/v1/moderation/queue`
-- Tables created and active:
-  - `users`
-  - `groups`
-  - `group_memberships`
-  - `prayer_requests`
-  - `prayer_request_groups`
-  - `prayer_request_updates`
-  - `prayer_actions`
-  - `moderation_queue`
-  - `moderation_actions`
-  - `bans`
-  - `notifications`
+Pending in Phase 1:
+- Complete moderation queue behavior and state transitions
+- Add robust error telemetry and user-facing feedback standardization
+- Add integration tests for profile/group/request/friend flows
+- Add end-to-end smoke tests for main flows
 
-Prompt for this phase:
+Prompt for remaining Phase 1:
 ```text
-Audit the current monorepo and finalize Phase 0 hardening. Add lint jobs to CI for Go and frontend, add a migration validation step, and create deployment skeleton files for backend and frontend with environment variable mapping. Keep architecture simple and avoid introducing new frameworks.
+Complete Phase 1 MVP by implementing moderation state transitions and integration tests for profile, groups, requests, and friendships. Keep REST endpoints simple, preserve current schema, and focus on production-safe validation and authorization.
 ```
 
-### Phase 1 MVP
-
-Status: `STARTED`
-
-Checklist:
-- [ ] Implement Supabase auth flows in frontend (`email/password`, `magic link`, `password reset`)
-- [x] Profile endpoints scaffolded
-- [ ] Persist and enforce notification preferences in profile API
-- [ ] Implement `POST /groups`, `GET /groups/{id}`, `POST /groups/{id}/join`
-- [ ] Implement role enforcement for group membership actions
-- [x] `POST /api/v1/requests` scaffolded
-- [ ] Enforce visibility rules by membership and ownership
-- [x] `POST /api/v1/requests/{id}/pray` with anti-abuse window
-- [ ] Create moderation queue items on request creation according to rules
-- [ ] Implement `approve` and `reject` actions with status transitions
-- [ ] Send moderation outcome email events
-- [ ] Add unit/integration tests for MVP flows
-
-Technical detail:
-- Required endpoints to complete in this phase:
-  - `POST /api/v1/groups`
-  - `GET /api/v1/groups/{id}`
-  - `POST /api/v1/groups/{id}/join`
-  - `POST /api/v1/moderation/queue/{id}/approve`
-  - `POST /api/v1/moderation/queue/{id}/reject`
-- Main tables impacted:
-  - `groups`
-  - `group_memberships`
-  - `prayer_requests`
-  - `prayer_request_groups`
-  - `moderation_queue`
-  - `moderation_actions`
-
-Prompt for this phase:
-```text
-Implement Phase 1 MVP end-to-end using the existing stack. Complete group creation and membership endpoints, enforce visibility access checks, implement moderation queue approve/reject actions, and wire frontend auth with Supabase (email/password and magic link). Add integration tests for request creation, prayed action rate limit, and moderation transitions.
-```
-
-### Phase 2 v1
+## Phase 2 v1
 
 Status: `PLANNED`
 
-Checklist:
-- [ ] Enforce mandatory moderation for all `PUBLIC` requests
-- [ ] Build moderation dashboard with queue filters and actions
-- [ ] Implement `request_changes`, `remove`, and `ban` flows
-- [ ] Persist full moderation audit payloads
-- [ ] Implement notifications API (`email + in-app`)
-- [ ] Add category search and pagination to feed endpoints
-- [ ] Add frontend moderation page with role gating
-- [ ] Add e2e coverage for moderation and notifications
+Scope:
+- Mandatory moderation for all public requests
+- Moderator dashboard actions with audit logs
+- Notifications (email + in-app records)
+- Feed search and pagination
 
-Technical detail:
-- Endpoints to add:
-  - `GET /api/v1/requests/search`
-  - `POST /api/v1/moderation/queue/{id}/request-changes`
-  - `POST /api/v1/requests/{id}/remove`
-  - `POST /api/v1/groups/{id}/bans`
-  - `GET /api/v1/notifications`
-  - `POST /api/v1/notifications/{id}/read`
-- Main tables impacted:
-  - `moderation_queue`
-  - `moderation_actions`
-  - `bans`
-  - `notifications`
+Key backlog:
+- `POST /api/v1/moderation/queue/{id}/approve`
+- `POST /api/v1/moderation/queue/{id}/reject`
+- `POST /api/v1/moderation/queue/{id}/request-changes`
+- `POST /api/v1/requests/{id}/remove`
+- `POST /api/v1/groups/{id}/bans`
+- `GET /api/v1/notifications`
+- `POST /api/v1/notifications/{id}/read`
 
-Prompt for this phase:
+Prompt for Phase 2:
 ```text
-Implement Phase 2 v1 moderation and notifications. Add mandatory moderation for public requests, complete moderator action endpoints (request changes, remove, ban), store all moderation audit payloads, and implement notifications listing/read API. Update frontend with moderation dashboard and paginated/searchable feed.
+Implement Phase 2 moderation and notifications end-to-end. Add moderator actions with audit logging, expose notification APIs, and deliver searchable paginated feeds while preserving current layered architecture.
 ```
 
-### Phase 3 v2
+## Phase 3 v2
 
 Status: `PLANNED`
 
-Checklist:
-- [ ] Add comments on prayer requests with moderation support
-- [ ] Add advanced privacy controls per request and group
-- [ ] Implement analytics dashboard for group admins
-- [ ] Implement account export flow
-- [ ] Implement account deletion and data anonymization flow
-- [ ] Add retention policy jobs and compliance checks
-- [ ] Add e2e scenarios for privacy/export/deletion
+Scope:
+- Moderated comments on requests
+- Advanced privacy controls
+- Group analytics dashboard
+- Data export and account deletion flows
 
-Technical detail:
-- Endpoints to add:
-  - `POST /api/v1/requests/{id}/comments`
-  - `GET /api/v1/groups/{id}/analytics`
-  - `POST /api/v1/account/export`
-  - `POST /api/v1/account/delete`
-- Main tables impacted:
-  - `prayer_requests`
-  - `prayer_actions`
-  - `moderation_queue`
-  - `moderation_actions`
-  - `notifications`
-  - `comments` (new)
-
-Prompt for this phase:
+Prompt for Phase 3:
 ```text
-Implement Phase 3 v2 focused on growth and compliance. Add moderated comments, privacy controls, analytics for group admins, and account export/deletion flows with anonymization safeguards. Keep implementation simple, with clear service-level rules and integration tests.
+Implement Phase 3 growth features: moderated comments, advanced privacy settings, group analytics, and compliance-friendly export/deletion flows with clear authorization and audit trails.
 ```
-
-## Features
-
-### Auth and Profile
-
-- Sign up and sign in with email/password
-- Magic link sign in
-- Password reset
-- Profile fields: `displayName`, `avatarUrl`, notification preferences
-
-### Prayer Requests
-
-- Create request with:
-  - `title`
-  - `body`
-  - `category`: `HEALTH`, `FAMILY`, `WORK`, `GRIEF`, `THANKSGIVING`, `OTHER`
-  - `visibility`: `PUBLIC`, `GROUP_ONLY`, `PRIVATE`
-  - `allowAnonymous`
-- Status lifecycle:
-  - `PENDING_REVIEW`
-  - `ACTIVE`
-  - `CLOSED`
-  - `ARCHIVED`
-  - `REMOVED`
-- Append-only updates timeline
-
-### Engagement
-
-- `I prayed` action with counter + per-user history
-- Anti-abuse window: one action per user per request each 12 hours
-
-### Groups and Moderation
-
-- Groups with join policy: `OPEN`, `REQUEST`, `INVITE_ONLY`
-- Membership roles: `MEMBER`, `MODERATOR`, `ADMIN`
-- Moderation queue and audit logs
-- Group bans
-
-## Prerequisites
-
-- Go 1.22+
-- Node.js 20+
-- npm 10+
-- Supabase project (database + auth)
-- Optional for migrations: `migrate` CLI
 
 ## Environment Setup
 
-### Backend
+## Backend
 
 1. Copy env template:
 
@@ -279,10 +203,14 @@ cp backend/.env.example backend/.env
 - `RATE_LIMIT_WINDOW`
 - `PRAYED_WINDOW_HOURS`
 - `PRAYED_IP_BURST_PER_HOUR`
+- `CORS_ALLOWED_ORIGINS`
 
-`DATABASE_URL`, `JWT_ISSUER`, and `JWKS_URL` are required.
+Required:
+- `DATABASE_URL`
+- `JWT_ISSUER`
+- `JWKS_URL`
 
-### Frontend
+## Frontend
 
 1. Copy env template:
 
@@ -293,83 +221,42 @@ cp frontend/.env.example frontend/.env
 2. Configure `frontend/.env`:
 
 - `VITE_API_BASE_URL`
-
-Default local value:
-- `http://localhost:8080/api/v1`
-
-## Install Dependencies
-
-### Backend
-
-```bash
-cd backend
-go mod tidy
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-## Database Migrations
-
-Migration files are in:
-- `backend/internal/db/migrations`
-
-Example with `golang-migrate`:
-
-```bash
-migrate -path backend/internal/db/migrations -database "$DATABASE_URL" up
-```
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
 ## Run Locally
 
-### Run backend and frontend together
-
-From repository root:
+From root:
 
 ```bash
-(cd backend && set -a && source .env && set +a && GOCACHE=/tmp/go-build go run ./cmd/api) & (cd frontend && npm run dev) & sleep 6 && curl -i http://localhost:8080/health && curl -i http://localhost:8080/api/v1/feed && wait
+(cd backend && set -a && source .env && set +a && GOCACHE=/tmp/go-build go run ./cmd/api) & (cd frontend && npm run dev)
 ```
 
-### Run separately
-
-Backend:
+## Migrations
 
 ```bash
 cd backend
 set -a && source .env && set +a
-GOCACHE=/tmp/go-build go run ./cmd/api
+migrate -path internal/db/migrations -database "$DATABASE_URL" up
 ```
 
-Frontend:
+## Build And Test
 
-```bash
-cd frontend
-npm run dev
-```
-
-## Build and Test
-
-### Backend tests
+Backend:
 
 ```bash
 cd backend
 GOCACHE=/tmp/go-build go test ./...
 ```
 
-### Frontend build
+Frontend:
 
 ```bash
 cd frontend
 npm run build
 ```
 
-## API Error Contract
-
-All API errors follow:
+## Error Contract
 
 ```json
 {
@@ -381,22 +268,7 @@ All API errors follow:
 }
 ```
 
-## Security Notes
+## Product Specification
 
-- JWT validation uses Supabase JWKS and issuer check
-- Request id and structured logs enabled
-- Basic IP rate limit middleware enabled
-- `I prayed` anti-abuse time window enabled
-
-## Product And Technical Specification
-
-See full specification:
+See:
 - `docs/product-spec.md`
-
-## Immediate Next Steps
-
-1. Implement real auth handlers and frontend auth integration with Supabase session SDK.
-2. Implement groups endpoints and role-based authorization checks.
-3. Implement moderation action endpoints with audit log writes.
-4. Add integration tests for prayer creation, moderation transitions, and prayed window behavior.
-5. Deploy MVP skeleton: frontend on Vercel, backend on Render or Railway, DB/Auth on Supabase.
