@@ -13,12 +13,17 @@ type FeedItem = {
   title: string
   body: string
   category: string
+  visibility: 'PUBLIC' | 'GROUP_ONLY' | 'PRIVATE'
+  groupNames?: string[]
+  createdAt: string
   prayedCount: number
   prayerTypeCounts?: Record<string, number>
 }
 
 type FeedScope = 'home' | 'public' | 'groups' | 'friends'
 type ProfileMini = { id: string }
+type FeedPagination = { page: number; pageSize: number; total: number; totalPages: number }
+type FeedResponse = { items: FeedItem[]; pagination: FeedPagination }
 
 const tabs: Array<{ scope: FeedScope; label: string; endpoint: string; requiresAuth: boolean }> = [
   { scope: 'home', label: 'Principal', endpoint: '/feed/home', requiresAuth: true },
@@ -44,19 +49,46 @@ const categoryLabel: Record<string, string> = {
   OTHER: 'Outros'
 }
 
+const visibilityLabel: Record<FeedItem['visibility'], string> = {
+  PUBLIC: 'Público',
+  GROUP_ONLY: 'Grupo',
+  PRIVATE: 'Só amigos'
+}
+
+const feedPageSize = 10
+
+function formatPostDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
+}
+
 export function FeedPage() {
   const queryClient = useQueryClient()
   const [lastPrayerHit, setLastPrayerHit] = useState<{ requestID: string; actionType: string; fxID: number } | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const rawScope = searchParams.get('scope') as FeedScope | null
   const scope: FeedScope = rawScope && tabs.some((tab) => tab.scope === rawScope) ? rawScope : 'home'
+  const rawPage = Number.parseInt(searchParams.get('page') || '1', 10)
+  const page = Number.isNaN(rawPage) || rawPage < 1 ? 1 : rawPage
+  const offset = (page - 1) * feedPageSize
   const activeTab = tabs.find((tab) => tab.scope === scope) ?? tabs[0]
 
   const query = useQuery({
-    queryKey: ['feed', scope],
+    queryKey: ['feed', scope, page],
     queryFn: async () => {
-      const res = await api.get<{ items: FeedItem[] }>(activeTab.endpoint)
-      return res.data.items
+      const res = await api.get<FeedResponse>(activeTab.endpoint, {
+        params: { limit: feedPageSize, offset }
+      })
+      return res.data
     }
   })
   const profileQuery = useQuery({
@@ -84,8 +116,23 @@ export function FeedPage() {
     return () => window.clearTimeout(timer)
   }, [lastPrayerHit])
 
-  const items = query.data ?? []
+  const feedData = query.data
+  const items = feedData?.items ?? []
+  const totalPages = Math.max(feedData?.pagination?.totalPages ?? 1, 1)
   const isUnauthorized = (query.error as any)?.response?.status === 401
+
+  const changeScope = (nextScope: FeedScope) => {
+    setSearchParams({ scope: nextScope, page: '1' })
+  }
+
+  const goToPage = (target: number) => {
+    const nextPage = Math.min(Math.max(target, 1), totalPages)
+    setSearchParams({ scope, page: String(nextPage) })
+  }
+
+  const paginationStart = Math.max(1, page - 2)
+  const paginationEnd = Math.min(totalPages, paginationStart + 4)
+  const pageNumbers = Array.from({ length: paginationEnd - paginationStart + 1 }, (_, idx) => paginationStart + idx)
 
   return (
     <PageShell>
@@ -106,7 +153,7 @@ export function FeedPage() {
             <button
               key={tab.scope}
               className={`rounded-full px-4 py-2 text-sm font-semibold ${tab.scope === scope ? 'pv-chip-active' : 'pv-chip text-[#d4c8b7]'}`}
-              onClick={() => setSearchParams({ scope: tab.scope })}
+              onClick={() => changeScope(tab.scope)}
               type="button"
             >
               {tab.label}
@@ -141,12 +188,25 @@ export function FeedPage() {
                     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <p className="truncate text-sm font-semibold text-secondary">{item.authorDisplayName || 'Membro'}</p>
                       <p className="truncate text-xs text-[#c4ad9d]">@{item.authorUsername || 'usuario'}</p>
+                      <span className="text-xs text-[#9fb3a7]">•</span>
+                      <p className="truncate text-xs text-[#9fb3a7]">{formatPostDate(item.createdAt)}</p>
                     </div>
                   </div>
                 </div>
-                <span className="shrink-0 rounded-xl border border-[#9f5e49] bg-gradient-to-r from-[#6b3d31] to-[#9f5e49] px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-[#ffe4db]">
-                  {categoryLabel[item.category] || item.category}
-                </span>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  <span className="rounded-xl border border-[#9f5e49] bg-gradient-to-r from-[#6b3d31] to-[#9f5e49] px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-[#ffe4db]">
+                    {categoryLabel[item.category] || item.category}
+                  </span>
+                  <span className="rounded-xl border border-[#2d4f3a] bg-[#183122] px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-[#b8dbbf]">
+                    {visibilityLabel[item.visibility]}
+                  </span>
+                  {item.groupNames?.map((groupName) => (
+                    <span key={`${item.id}-${groupName}`} className="inline-flex items-center gap-1 rounded-xl border border-[#1f5a3c] bg-[#103422] px-2.5 py-1 text-[11px] font-semibold tracking-[0.02em] text-[#c8f1d5]">
+                      <span aria-hidden>👥</span>
+                      <span>{groupName}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div className="pl-[72px]">
@@ -185,6 +245,49 @@ export function FeedPage() {
             </article>
           ))}
         </div>
+
+        {!isUnauthorized && !query.isLoading && items.length > 0 && (
+          <div className="mt-2 flex items-center justify-between rounded-2xl border border-[#254036] bg-[#0f1b16]/80 px-4 py-3">
+            <p className="text-xs text-[#9fb3a7]">Página {page} de {totalPages}</p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                className="pv-chip rounded-full px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={page <= 1 || query.isFetching}
+                onClick={() => goToPage(1)}
+                type="button"
+              >
+                Primeira
+              </button>
+              <button
+                className="pv-chip rounded-full px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={page <= 1 || query.isFetching}
+                onClick={() => goToPage(page - 1)}
+                type="button"
+              >
+                Anterior
+              </button>
+              {pageNumbers.map((pageNumber) => (
+                <button
+                  key={pageNumber}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${pageNumber === page ? 'pv-chip-active' : 'pv-chip'}`}
+                  disabled={query.isFetching}
+                  onClick={() => goToPage(pageNumber)}
+                  type="button"
+                >
+                  {pageNumber}
+                </button>
+              ))}
+              <button
+                className="pv-chip rounded-full px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={page >= totalPages || query.isFetching}
+                onClick={() => goToPage(page + 1)}
+                type="button"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </PageShell>
   )
