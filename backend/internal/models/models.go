@@ -7,6 +7,7 @@ type Visibility string
 type PrayerCategory string
 
 type PrayerStatus string
+type PrayerActionType string
 
 type GroupJoinPolicy string
 
@@ -35,6 +36,14 @@ const (
 	StatusClosed        PrayerStatus = "CLOSED"
 	StatusArchived      PrayerStatus = "ARCHIVED"
 	StatusRemoved       PrayerStatus = "REMOVED"
+)
+
+const (
+	PrayerActionHailMary     PrayerActionType = "HAIL_MARY"
+	PrayerActionOurFather    PrayerActionType = "OUR_FATHER"
+	PrayerActionGloryBe      PrayerActionType = "GLORY_BE"
+	PrayerActionRosaryDecade PrayerActionType = "ROSARY_DECADE"
+	PrayerActionRosaryFull   PrayerActionType = "ROSARY_FULL"
 )
 
 const (
@@ -68,21 +77,37 @@ type User struct {
 }
 
 type PrayerRequest struct {
-	ID             string         `json:"id"`
-	AuthorID       string         `json:"authorId"`
-	Title          string         `json:"title"`
-	Body           string         `json:"body"`
-	Category       PrayerCategory `json:"category"`
-	Visibility     Visibility     `json:"visibility"`
-	AllowAnonymous bool           `json:"allowAnonymous"`
-	Status         PrayerStatus   `json:"status"`
-	PrayedCount    int64          `json:"prayedCount"`
-	CreatedAt      time.Time      `json:"createdAt"`
-	UpdatedAt      time.Time      `json:"updatedAt"`
+	ID                string           `json:"id"`
+	AuthorID          string           `json:"authorId"`
+	AuthorUsername    string           `json:"authorUsername,omitempty"`
+	AuthorDisplayName string           `json:"authorDisplayName,omitempty"`
+	Title             string           `json:"title"`
+	Body              string           `json:"body"`
+	Category          PrayerCategory   `json:"category"`
+	Visibility        Visibility       `json:"visibility"`
+	AllowAnonymous    bool             `json:"allowAnonymous"`
+	Status            PrayerStatus     `json:"status"`
+	PrayedCount       int64            `json:"prayedCount"`
+	GroupIDs          []string         `json:"groupIds,omitempty"`
+	PrayerTypeCounts  map[string]int64 `json:"prayerTypeCounts,omitempty"`
+	MyPrayerTypes     []string         `json:"myPrayerTypes,omitempty"`
+	CreatedAt         time.Time        `json:"createdAt"`
+	UpdatedAt         time.Time        `json:"updatedAt"`
 }
 
 type CreatePrayerRequestInput struct {
 	AuthorID       string
+	Title          string
+	Body           string
+	Category       PrayerCategory
+	Visibility     Visibility
+	AllowAnonymous bool
+	GroupIDs       []string
+}
+
+type UpdatePrayerRequestInput struct {
+	RequestID      string
+	EditorID       string
 	Title          string
 	Body           string
 	Category       PrayerCategory

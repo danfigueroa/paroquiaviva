@@ -25,6 +25,7 @@ var ErrInvalidGroupName = errors.New("invalid group name")
 var ErrInvalidGroupDescription = errors.New("invalid group description")
 var ErrInvalidJoinPolicy = errors.New("invalid joinPolicy")
 var ErrInvalidUsername = errors.New("invalid username")
+var ErrInvalidPrayerActionType = errors.New("invalid prayer action type")
 
 func NewService(repo repositories.Repository) *Service {
 	return &Service{repo: repo}
@@ -65,14 +66,10 @@ func (s *Service) CreatePrayerRequest(ctx context.Context, in models.CreatePraye
 	if len(in.Body) < 10 || len(in.Body) > 4000 {
 		return models.PrayerRequest{}, ErrInvalidBody
 	}
-	switch in.Category {
-	case models.CategoryHealth, models.CategoryFamily, models.CategoryWork, models.CategoryGrief, models.CategoryThanksgiving, models.CategoryOther:
-	default:
+	if !isValidPrayerCategory(in.Category) {
 		return models.PrayerRequest{}, ErrInvalidCategory
 	}
-	switch in.Visibility {
-	case models.VisibilityPublic, models.VisibilityGroupOnly, models.VisibilityPrivate:
-	default:
+	if !isValidVisibility(in.Visibility) {
 		return models.PrayerRequest{}, ErrInvalidVisibility
 	}
 	if in.Visibility == models.VisibilityGroupOnly && len(in.GroupIDs) == 0 {
@@ -82,6 +79,38 @@ func (s *Service) CreatePrayerRequest(ctx context.Context, in models.CreatePraye
 		return models.PrayerRequest{}, ErrPrivateCannotHaveGroups
 	}
 	return s.repo.CreatePrayerRequest(ctx, in)
+}
+
+func (s *Service) UpdatePrayerRequest(ctx context.Context, in models.UpdatePrayerRequestInput) (models.PrayerRequest, error) {
+	in.Title = strings.TrimSpace(in.Title)
+	in.Body = strings.TrimSpace(in.Body)
+	if len(in.Title) < 3 || len(in.Title) > 120 {
+		return models.PrayerRequest{}, ErrInvalidTitle
+	}
+	if len(in.Body) < 10 || len(in.Body) > 4000 {
+		return models.PrayerRequest{}, ErrInvalidBody
+	}
+	if !isValidPrayerCategory(in.Category) {
+		return models.PrayerRequest{}, ErrInvalidCategory
+	}
+	if !isValidVisibility(in.Visibility) {
+		return models.PrayerRequest{}, ErrInvalidVisibility
+	}
+	if in.Visibility == models.VisibilityGroupOnly && len(in.GroupIDs) == 0 {
+		return models.PrayerRequest{}, ErrGroupIDsRequired
+	}
+	if in.Visibility == models.VisibilityPrivate && len(in.GroupIDs) > 0 {
+		return models.PrayerRequest{}, ErrPrivateCannotHaveGroups
+	}
+	return s.repo.UpdatePrayerRequest(ctx, in)
+}
+
+func (s *Service) DeletePrayerRequest(ctx context.Context, userID, requestID string) error {
+	return s.repo.DeletePrayerRequest(ctx, userID, requestID)
+}
+
+func (s *Service) GetPrayerRequestByID(ctx context.Context, userID, requestID string) (models.PrayerRequest, error) {
+	return s.repo.GetPrayerRequestByID(ctx, userID, requestID)
 }
 
 func (s *Service) ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error) {
@@ -94,11 +123,14 @@ func (s *Service) ListPublicPrayerRequests(ctx context.Context, limit, offset in
 	return s.repo.ListPublicPrayerRequests(ctx, limit, offset)
 }
 
-func (s *Service) RecordPrayedAction(ctx context.Context, userID, requestID string, windowHours int) error {
+func (s *Service) RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error {
 	if windowHours < 1 {
 		windowHours = 12
 	}
-	return s.repo.RecordPrayedAction(ctx, userID, requestID, windowHours)
+	if !isValidPrayerActionType(actionType) {
+		return ErrInvalidPrayerActionType
+	}
+	return s.repo.RecordPrayerAction(ctx, userID, requestID, actionType, windowHours)
 }
 
 func (s *Service) ListHomePrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
@@ -200,4 +232,31 @@ func (s *Service) EnsureAuthUser(ctx context.Context, userID, email string) erro
 		email = userID + "@auth.local"
 	}
 	return s.repo.UpsertAuthUser(ctx, userID, email)
+}
+
+func isValidPrayerCategory(category models.PrayerCategory) bool {
+	switch category {
+	case models.CategoryHealth, models.CategoryFamily, models.CategoryWork, models.CategoryGrief, models.CategoryThanksgiving, models.CategoryOther:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidVisibility(visibility models.Visibility) bool {
+	switch visibility {
+	case models.VisibilityPublic, models.VisibilityGroupOnly, models.VisibilityPrivate:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidPrayerActionType(actionType models.PrayerActionType) bool {
+	switch actionType {
+	case models.PrayerActionHailMary, models.PrayerActionOurFather, models.PrayerActionGloryBe, models.PrayerActionRosaryDecade, models.PrayerActionRosaryFull:
+		return true
+	default:
+		return false
+	}
 }

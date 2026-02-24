@@ -22,17 +22,22 @@ var ErrFriendRequestAlreadyExists = errors.New("friend request already exists")
 var ErrFriendRequestNotFound = errors.New("friend request not found")
 var ErrUsernameTaken = errors.New("username already in use")
 var ErrGroupAccessDenied = errors.New("group access denied")
+var ErrPrayerRequestNotFound = errors.New("prayer request not found")
+var ErrPrayerRequestForbidden = errors.New("prayer request forbidden")
 
 type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
 	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error)
 	UpsertAuthUser(ctx context.Context, userID, email string) error
 	CreatePrayerRequest(ctx context.Context, in models.CreatePrayerRequestInput) (models.PrayerRequest, error)
+	UpdatePrayerRequest(ctx context.Context, in models.UpdatePrayerRequestInput) (models.PrayerRequest, error)
+	DeletePrayerRequest(ctx context.Context, userID, requestID string) error
+	GetPrayerRequestByID(ctx context.Context, userID, requestID string) (models.PrayerRequest, error)
 	ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error)
 	ListGroupsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
 	ListFriendsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
 	ListHomePrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
-	RecordPrayedAction(ctx context.Context, userID, requestID string, windowHours int) error
+	RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error
 	ListUserGroups(ctx context.Context, userID string) ([]models.Group, error)
 	CreateGroup(ctx context.Context, userID, name, description string, imageURL *string, joinPolicy models.GroupJoinPolicy) (models.Group, error)
 	RequestJoinGroup(ctx context.Context, userID, groupID string) error
@@ -103,8 +108,7 @@ func (r *PostgresRepository) CreatePrayerRequest(ctx context.Context, in models.
 	var pr models.PrayerRequest
 	err = tx.QueryRow(ctx, `
 		INSERT INTO prayer_requests (author_id, title, body, category, visibility, allow_anonymous, status)
-		VALUES ($1, $2, $3, $4, $5, $6,
-			CASE WHEN $5 = 'PUBLIC' THEN 'PENDING_REVIEW' ELSE 'ACTIVE' END)
+		VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
 		RETURNING id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
 	`, in.AuthorID, in.Title, in.Body, in.Category, in.Visibility, in.AllowAnonymous).
 		Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
@@ -145,6 +149,136 @@ func (r *PostgresRepository) CreatePrayerRequest(ctx context.Context, in models.
 	return pr, nil
 }
 
+func (r *PostgresRepository) UpdatePrayerRequest(ctx context.Context, in models.UpdatePrayerRequestInput) (models.PrayerRequest, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return models.PrayerRequest{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	ct, err := tx.Exec(ctx, `
+		UPDATE prayer_requests
+		SET title = $3,
+			body = $4,
+			category = $5,
+			visibility = $6,
+			allow_anonymous = $7,
+			status = 'ACTIVE',
+			updated_at = NOW()
+		WHERE id = $1
+		  AND author_id = $2
+		  AND deleted_at IS NULL
+	`, in.RequestID, in.EditorID, in.Title, in.Body, in.Category, in.Visibility, in.AllowAnonymous)
+	if err != nil {
+		return models.PrayerRequest{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return models.PrayerRequest{}, ErrPrayerRequestNotFound
+	}
+
+	_, err = tx.Exec(ctx, `DELETE FROM prayer_request_groups WHERE prayer_request_id = $1`, in.RequestID)
+	if err != nil {
+		return models.PrayerRequest{}, err
+	}
+
+	for _, groupID := range in.GroupIDs {
+		var canPost bool
+		err = tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM group_memberships gm
+				WHERE gm.group_id = $1
+				  AND gm.user_id = $2
+				  AND gm.deleted_at IS NULL
+			)
+		`, groupID, in.EditorID).Scan(&canPost)
+		if err != nil {
+			return models.PrayerRequest{}, err
+		}
+		if !canPost {
+			return models.PrayerRequest{}, ErrGroupAccessDenied
+		}
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO prayer_request_groups (prayer_request_id, group_id)
+			VALUES ($1, $2)
+		`, in.RequestID, groupID)
+		if err != nil {
+			return models.PrayerRequest{}, err
+		}
+	}
+
+	var pr models.PrayerRequest
+	err = tx.QueryRow(ctx, `
+		SELECT id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
+		FROM prayer_requests
+		WHERE id = $1
+	`, in.RequestID).Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
+	if err != nil {
+		return models.PrayerRequest{}, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return models.PrayerRequest{}, err
+	}
+	return pr, nil
+}
+
+func (r *PostgresRepository) DeletePrayerRequest(ctx context.Context, userID, requestID string) error {
+	ct, err := r.db.Exec(ctx, `
+		UPDATE prayer_requests
+		SET deleted_at = NOW(), status = 'ARCHIVED', updated_at = NOW()
+		WHERE id = $1
+		  AND author_id = $2
+		  AND deleted_at IS NULL
+	`, requestID, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPrayerRequestNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetPrayerRequestByID(ctx context.Context, userID, requestID string) (models.PrayerRequest, error) {
+	var pr models.PrayerRequest
+	err := r.db.QueryRow(ctx, `
+		SELECT id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
+		FROM prayer_requests
+		WHERE id = $1
+		  AND deleted_at IS NULL
+		  AND (
+			author_id = $2
+			OR (visibility = 'PUBLIC' AND status = 'ACTIVE')
+			OR (
+				visibility = 'GROUP_ONLY'
+				AND status = 'ACTIVE'
+				AND EXISTS (
+					SELECT 1
+					FROM prayer_request_groups prg
+					INNER JOIN group_memberships gm ON gm.group_id = prg.group_id
+					WHERE prg.prayer_request_id = prayer_requests.id
+					  AND gm.user_id = $2
+					  AND gm.deleted_at IS NULL
+				)
+			)
+		  )
+	`, requestID, userID).Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.PrayerRequest{}, ErrPrayerRequestNotFound
+		}
+		return models.PrayerRequest{}, err
+	}
+
+	items := []models.PrayerRequest{pr}
+	if err = r.enrichPrayerRequests(ctx, userID, items); err != nil {
+		return models.PrayerRequest{}, err
+	}
+	return items[0], nil
+}
+
 func (r *PostgresRepository) ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
@@ -167,22 +301,28 @@ func (r *PostgresRepository) ListPublicPrayerRequests(ctx context.Context, limit
 		}
 		items = append(items, pr)
 	}
-	return items, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if err = r.enrichPrayerRequests(ctx, "", items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-func (r *PostgresRepository) RecordPrayedAction(ctx context.Context, userID, requestID string, windowHours int) error {
+func (r *PostgresRepository) RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error {
 	ct, err := r.db.Exec(ctx, `
 		INSERT INTO prayer_actions (user_id, prayer_request_id, action_type)
-		SELECT $1, $2, 'PRAYED'
+		SELECT $1, $2, $3
 		WHERE NOT EXISTS (
 			SELECT 1
 			FROM prayer_actions
 			WHERE user_id = $1
 			AND prayer_request_id = $2
-			AND action_type = 'PRAYED'
-			AND created_at > NOW() - ($3::text || ' hours')::interval
+			AND action_type = $3
+			AND created_at > NOW() - ($4::text || ' hours')::interval
 		)
-	`, userID, requestID, windowHours)
+	`, userID, requestID, actionType, windowHours)
 	if err != nil {
 		return err
 	}
@@ -215,7 +355,14 @@ func (r *PostgresRepository) ListGroupsPrayerRequests(ctx context.Context, userI
 		return nil, err
 	}
 	defer rows.Close()
-	return scanPrayerRequests(rows)
+	items, err := scanPrayerRequests(rows)
+	if err != nil {
+		return nil, err
+	}
+	if err = r.enrichPrayerRequests(ctx, userID, items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (r *PostgresRepository) ListFriendsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
@@ -238,7 +385,14 @@ func (r *PostgresRepository) ListFriendsPrayerRequests(ctx context.Context, user
 		return nil, err
 	}
 	defer rows.Close()
-	return scanPrayerRequests(rows)
+	items, err := scanPrayerRequests(rows)
+	if err != nil {
+		return nil, err
+	}
+	if err = r.enrichPrayerRequests(ctx, userID, items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (r *PostgresRepository) ListHomePrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
@@ -275,7 +429,14 @@ func (r *PostgresRepository) ListHomePrayerRequests(ctx context.Context, userID 
 		return nil, err
 	}
 	defer rows.Close()
-	return scanPrayerRequests(rows)
+	items, err := scanPrayerRequests(rows)
+	if err != nil {
+		return nil, err
+	}
+	if err = r.enrichPrayerRequests(ctx, userID, items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (r *PostgresRepository) ListUserGroups(ctx context.Context, userID string) ([]models.Group, error) {
@@ -463,6 +624,146 @@ func scanPrayerRequests(rows pgx.Rows) ([]models.PrayerRequest, error) {
 		items = append(items, pr)
 	}
 	return items, rows.Err()
+}
+
+func (r *PostgresRepository) enrichPrayerRequests(ctx context.Context, userID string, items []models.PrayerRequest) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(items))
+	indexByID := make(map[string]int, len(items))
+	authorIDs := make([]string, 0, len(items))
+	authorSet := make(map[string]struct{}, len(items))
+	for i := range items {
+		ids = append(ids, items[i].ID)
+		indexByID[items[i].ID] = i
+		items[i].PrayerTypeCounts = map[string]int64{}
+		if _, ok := authorSet[items[i].AuthorID]; !ok {
+			authorSet[items[i].AuthorID] = struct{}{}
+			authorIDs = append(authorIDs, items[i].AuthorID)
+		}
+	}
+
+	authorRows, err := r.db.Query(ctx, `
+		SELECT id::text, username, display_name
+		FROM users
+		WHERE id = ANY($1::uuid[])
+	`, authorIDs)
+	if err != nil {
+		return err
+	}
+	defer authorRows.Close()
+
+	authorByID := make(map[string]struct {
+		username    string
+		displayName string
+	}, len(authorIDs))
+	for authorRows.Next() {
+		var id, username, displayName string
+		if err = authorRows.Scan(&id, &username, &displayName); err != nil {
+			return err
+		}
+		authorByID[id] = struct {
+			username    string
+			displayName string
+		}{
+			username:    username,
+			displayName: displayName,
+		}
+	}
+	if err = authorRows.Err(); err != nil {
+		return err
+	}
+
+	for i := range items {
+		author, ok := authorByID[items[i].AuthorID]
+		if !ok {
+			continue
+		}
+		items[i].AuthorUsername = author.username
+		items[i].AuthorDisplayName = author.displayName
+	}
+
+	groupRows, err := r.db.Query(ctx, `
+		SELECT prayer_request_id::text, group_id::text
+		FROM prayer_request_groups
+		WHERE prayer_request_id = ANY($1::uuid[])
+	`, ids)
+	if err != nil {
+		return err
+	}
+	defer groupRows.Close()
+
+	for groupRows.Next() {
+		var requestID, groupID string
+		if err = groupRows.Scan(&requestID, &groupID); err != nil {
+			return err
+		}
+		idx, ok := indexByID[requestID]
+		if !ok {
+			continue
+		}
+		items[idx].GroupIDs = append(items[idx].GroupIDs, groupID)
+	}
+	if err = groupRows.Err(); err != nil {
+		return err
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT prayer_request_id::text, action_type, COUNT(*)::bigint
+		FROM prayer_actions
+		WHERE prayer_request_id = ANY($1::uuid[])
+		GROUP BY prayer_request_id, action_type
+	`, ids)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var requestID, actionType string
+		var count int64
+		if err = rows.Scan(&requestID, &actionType, &count); err != nil {
+			return err
+		}
+		idx, ok := indexByID[requestID]
+		if !ok {
+			continue
+		}
+		items[idx].PrayerTypeCounts[actionType] = count
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	if userID == "" {
+		return nil
+	}
+
+	userRows, err := r.db.Query(ctx, `
+		SELECT DISTINCT prayer_request_id::text, action_type
+		FROM prayer_actions
+		WHERE user_id = $1
+		  AND prayer_request_id = ANY($2::uuid[])
+	`, userID, ids)
+	if err != nil {
+		return err
+	}
+	defer userRows.Close()
+
+	for userRows.Next() {
+		var requestID, actionType string
+		if err = userRows.Scan(&requestID, &actionType); err != nil {
+			return err
+		}
+		idx, ok := indexByID[requestID]
+		if !ok {
+			continue
+		}
+		items[idx].MyPrayerTypes = append(items[idx].MyPrayerTypes, actionType)
+	}
+	return userRows.Err()
 }
 
 func (r *PostgresRepository) SendFriendRequest(ctx context.Context, fromUserID, targetUsername string) error {
