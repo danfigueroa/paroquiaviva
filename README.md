@@ -1,10 +1,10 @@
-# Parish Viva
+# Paróquia Viva
 
-Parish Viva is a prayer requests wall for parish communities, focused on safe sharing, group-based visibility, and moderation workflows.
+Paróquia Viva is a prayer requests wall for parish communities, focused on safe sharing, group-based visibility, and moderation workflows.
 
 ## Product Summary
 
-Parish Viva allows users to post prayer requests with privacy controls, engage through an `I prayed` action, and organize requests inside groups with moderation rules.
+Paróquia Viva allows users to post prayer requests with privacy controls, engage through an `I prayed` action, and organize requests inside groups with moderation rules.
 
 Core principles:
 - Simple architecture and maintainable code
