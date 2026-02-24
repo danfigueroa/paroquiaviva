@@ -68,48 +68,150 @@ Core principles:
 
 ### Phase 0 Setup
 
-Done:
-- Monorepo scaffolding
-- Initial backend/frontend build pipeline
-- Base migration and auth validator skeleton
+Status: `IN PROGRESS`
 
-Remaining:
-- Finalize CI checks (lint + tests + migration check)
-- Create deploy skeleton in chosen providers
+Checklist:
+- [x] Monorepo with `backend` and `frontend`
+- [x] Base backend architecture (`handlers -> services -> repositories`)
+- [x] Base frontend routing and API client
+- [x] Supabase JWT validation by JWKS
+- [x] Initial SQL migration applied in Supabase
+- [x] Local run and smoke validation (`/health`, `/feed`, `/profile` unauthorized)
+- [x] CI workflow for backend test and frontend build
+- [ ] Add backend lint in CI
+- [ ] Add frontend lint in CI
+- [ ] Add migration check in CI
+- [ ] Add deployment skeleton and environment mapping
+
+Technical detail:
+- Endpoints currently available:
+  - `GET /health`
+  - `GET /api/v1/feed`
+  - `GET /api/v1/profile`
+  - `PATCH /api/v1/profile`
+  - `POST /api/v1/requests`
+  - `POST /api/v1/requests/{id}/pray`
+  - `GET /api/v1/moderation/queue`
+- Tables created and active:
+  - `users`
+  - `groups`
+  - `group_memberships`
+  - `prayer_requests`
+  - `prayer_request_groups`
+  - `prayer_request_updates`
+  - `prayer_actions`
+  - `moderation_queue`
+  - `moderation_actions`
+  - `bans`
+  - `notifications`
+
+Prompt for this phase:
+```text
+Audit the current monorepo and finalize Phase 0 hardening. Add lint jobs to CI for Go and frontend, add a migration validation step, and create deployment skeleton files for backend and frontend with environment variable mapping. Keep architecture simple and avoid introducing new frameworks.
+```
 
 ### Phase 1 MVP
 
-Scope:
-- Auth + profile
-- Groups + memberships
-- Prayer requests for `GROUP_ONLY` and `PRIVATE`
-- `I prayed` with time-window anti-abuse
-- Basic moderation queue approve/reject
+Status: `STARTED`
 
-Current progress:
-- Started and partially scaffolded
+Checklist:
+- [ ] Implement Supabase auth flows in frontend (`email/password`, `magic link`, `password reset`)
+- [x] Profile endpoints scaffolded
+- [ ] Persist and enforce notification preferences in profile API
+- [ ] Implement `POST /groups`, `GET /groups/{id}`, `POST /groups/{id}/join`
+- [ ] Implement role enforcement for group membership actions
+- [x] `POST /api/v1/requests` scaffolded
+- [ ] Enforce visibility rules by membership and ownership
+- [x] `POST /api/v1/requests/{id}/pray` with anti-abuse window
+- [ ] Create moderation queue items on request creation according to rules
+- [ ] Implement `approve` and `reject` actions with status transitions
+- [ ] Send moderation outcome email events
+- [ ] Add unit/integration tests for MVP flows
+
+Technical detail:
+- Required endpoints to complete in this phase:
+  - `POST /api/v1/groups`
+  - `GET /api/v1/groups/{id}`
+  - `POST /api/v1/groups/{id}/join`
+  - `POST /api/v1/moderation/queue/{id}/approve`
+  - `POST /api/v1/moderation/queue/{id}/reject`
+- Main tables impacted:
+  - `groups`
+  - `group_memberships`
+  - `prayer_requests`
+  - `prayer_request_groups`
+  - `moderation_queue`
+  - `moderation_actions`
+
+Prompt for this phase:
+```text
+Implement Phase 1 MVP end-to-end using the existing stack. Complete group creation and membership endpoints, enforce visibility access checks, implement moderation queue approve/reject actions, and wire frontend auth with Supabase (email/password and magic link). Add integration tests for request creation, prayed action rate limit, and moderation transitions.
+```
 
 ### Phase 2 v1
 
-Scope:
-- Public feed with mandatory moderation
-- Moderation dashboard, audit logs, bans
-- Notifications (email + in-app)
-- Search and pagination
+Status: `PLANNED`
 
-Current progress:
-- Planned only
+Checklist:
+- [ ] Enforce mandatory moderation for all `PUBLIC` requests
+- [ ] Build moderation dashboard with queue filters and actions
+- [ ] Implement `request_changes`, `remove`, and `ban` flows
+- [ ] Persist full moderation audit payloads
+- [ ] Implement notifications API (`email + in-app`)
+- [ ] Add category search and pagination to feed endpoints
+- [ ] Add frontend moderation page with role gating
+- [ ] Add e2e coverage for moderation and notifications
+
+Technical detail:
+- Endpoints to add:
+  - `GET /api/v1/requests/search`
+  - `POST /api/v1/moderation/queue/{id}/request-changes`
+  - `POST /api/v1/requests/{id}/remove`
+  - `POST /api/v1/groups/{id}/bans`
+  - `GET /api/v1/notifications`
+  - `POST /api/v1/notifications/{id}/read`
+- Main tables impacted:
+  - `moderation_queue`
+  - `moderation_actions`
+  - `bans`
+  - `notifications`
+
+Prompt for this phase:
+```text
+Implement Phase 2 v1 moderation and notifications. Add mandatory moderation for public requests, complete moderator action endpoints (request changes, remove, ban), store all moderation audit payloads, and implement notifications listing/read API. Update frontend with moderation dashboard and paginated/searchable feed.
+```
 
 ### Phase 3 v2
 
-Scope:
-- Comments with moderation
-- Advanced privacy controls
-- Group analytics
-- Export and data deletion flows
+Status: `PLANNED`
 
-Current progress:
-- Planned only
+Checklist:
+- [ ] Add comments on prayer requests with moderation support
+- [ ] Add advanced privacy controls per request and group
+- [ ] Implement analytics dashboard for group admins
+- [ ] Implement account export flow
+- [ ] Implement account deletion and data anonymization flow
+- [ ] Add retention policy jobs and compliance checks
+- [ ] Add e2e scenarios for privacy/export/deletion
+
+Technical detail:
+- Endpoints to add:
+  - `POST /api/v1/requests/{id}/comments`
+  - `GET /api/v1/groups/{id}/analytics`
+  - `POST /api/v1/account/export`
+  - `POST /api/v1/account/delete`
+- Main tables impacted:
+  - `prayer_requests`
+  - `prayer_actions`
+  - `moderation_queue`
+  - `moderation_actions`
+  - `notifications`
+  - `comments` (new)
+
+Prompt for this phase:
+```text
+Implement Phase 3 v2 focused on growth and compliance. Add moderated comments, privacy controls, analytics for group admins, and account export/deletion flows with anonymization safeguards. Keep implementation simple, with clear service-level rules and integration tests.
+```
 
 ## Features
 
