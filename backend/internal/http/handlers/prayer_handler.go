@@ -44,6 +44,42 @@ func (h *PrayerHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
+func (h *PrayerHandler) ListHome(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	items, err := h.service.ListHomePrayerRequests(r.Context(), userID, limit, offset)
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *PrayerHandler) ListGroupsFeed(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	items, err := h.service.ListGroupsPrayerRequests(r.Context(), userID, limit, offset)
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *PrayerHandler) ListFriendsFeed(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	items, err := h.service.ListFriendsPrayerRequests(r.Context(), userID, limit, offset)
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
 func (h *PrayerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
 	var req createPrayerRequest

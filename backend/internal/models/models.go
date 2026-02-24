@@ -89,3 +89,23 @@ type CreatePrayerRequestInput struct {
 	AllowAnonymous bool
 	GroupIDs       []string
 }
+
+type Group struct {
+	ID                 string          `json:"id"`
+	Name               string          `json:"name"`
+	Description        string          `json:"description"`
+	ImageURL           *string         `json:"imageUrl,omitempty"`
+	JoinPolicy         GroupJoinPolicy `json:"joinPolicy"`
+	RequiresModeration bool            `json:"requiresModeration"`
+	CreatedBy          string          `json:"createdBy"`
+	CreatedAt          time.Time       `json:"createdAt"`
+	UpdatedAt          time.Time       `json:"updatedAt"`
+}
+
+type GroupJoinRequest struct {
+	ID          string    `json:"id"`
+	GroupID     string    `json:"groupId"`
+	UserID      string    `json:"userId"`
+	Status      string    `json:"status"`
+	RequestedAt time.Time `json:"requestedAt"`
+}

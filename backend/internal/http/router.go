@@ -23,6 +23,7 @@ func NewRouter(cfg config.Config, logger *zap.Logger, service *services.Service)
 	profileHandler := handlers.NewProfileHandler(service)
 	prayerHandler := handlers.NewPrayerHandler(service, cfg.PrayedWindowHours)
 	moderationHandler := handlers.NewModerationHandler()
+	groupHandler := handlers.NewGroupHandler(service)
 
 	r.Use(chimiddleware.Recoverer)
 	r.Use(middleware.RequestID)
@@ -33,11 +34,20 @@ func NewRouter(cfg config.Config, logger *zap.Logger, service *services.Service)
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.With(middleware.OptionalAuth(validator)).Get("/feed", prayerHandler.ListPublic)
+		api.With(middleware.OptionalAuth(validator)).Get("/feed/public", prayerHandler.ListPublic)
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(middleware.RequireAuth(validator))
 			protected.Get("/profile", profileHandler.GetProfile)
 			protected.Patch("/profile", profileHandler.UpdateProfile)
+			protected.Get("/feed/home", prayerHandler.ListHome)
+			protected.Get("/feed/groups", prayerHandler.ListGroupsFeed)
+			protected.Get("/feed/friends", prayerHandler.ListFriendsFeed)
+			protected.Get("/groups", groupHandler.ListMine)
+			protected.Post("/groups", groupHandler.Create)
+			protected.Post("/groups/{id}/join-requests", groupHandler.RequestJoin)
+			protected.Get("/groups/{id}/join-requests", groupHandler.ListJoinRequests)
+			protected.Post("/groups/{id}/join-requests/{requestId}/approve", groupHandler.ApproveJoinRequest)
 
 			protected.Post("/requests", prayerHandler.Create)
 			protected.Post("/requests/{id}/pray", prayerHandler.Pray)
