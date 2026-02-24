@@ -15,8 +15,8 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       className={cn(
         'inline-flex h-10 items-center justify-center rounded-full px-5 text-sm font-semibold transition duration-200 disabled:opacity-60',
         variant === 'primary'
-          ? 'bg-accent text-[#231815] hover:brightness-105'
-          : 'border border-[#516451] bg-[#1a211d] text-secondary hover:border-[#6f856f]',
+          ? 'bg-primary text-onPrimary hover:bg-primaryStrong'
+          : 'border border-primary/60 bg-panel text-secondary hover:bg-bgSoft hover:border-primary',
         className
       )}
       {...props}

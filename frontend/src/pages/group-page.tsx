@@ -34,7 +34,7 @@ export function GroupPage() {
   return (
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Administração</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Administração</p>
         <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Gestão de membros do grupo</h1>
         <p className="pv-muted mt-2 text-sm">Grupo selecionado: {id}</p>
       </section>
@@ -43,7 +43,7 @@ export function GroupPage() {
         <h2 className="pv-title text-xl font-semibold text-secondary">Solicitações pendentes</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {(requests.data ?? []).map((item) => (
-            <article key={item.id} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
+            <article key={item.id} className="rounded-2xl border border-primary bg-panel p-4">
               <p className="text-sm text-secondary">Usuário: {item.userId}</p>
               <p className="pv-muted mt-1 text-xs">{new Date(item.requestedAt).toLocaleString('pt-BR')}</p>
               <Button className="mt-3 w-full sm:w-auto" disabled={approve.isPending} onClick={() => approve.mutate(item.id)}>
@@ -52,7 +52,7 @@ export function GroupPage() {
             </article>
           ))}
           {!requests.isLoading && (requests.data ?? []).length === 0 && (
-            <p className="pv-muted rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4 text-sm sm:col-span-2">Não há solicitações pendentes.</p>
+            <p className="pv-muted rounded-2xl border border-primary bg-panel p-4 text-sm sm:col-span-2">Não há solicitações pendentes.</p>
           )}
         </div>
       </section>

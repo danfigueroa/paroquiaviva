@@ -86,7 +86,7 @@ export function FriendsPage() {
   return (
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Rede de amigos</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Rede de amigos</p>
         <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Conectar pessoas da comunidade</h1>
         <p className="pv-muted mt-2 text-sm">Busque usuários pelo nome dentro do sistema e envie solicitações de amizade.</p>
 
@@ -97,7 +97,7 @@ export function FriendsPage() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {(searchQuery.data ?? []).map((user) => (
-            <article key={user.userId} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
+            <article key={user.userId} className="rounded-2xl border border-primary bg-panel p-4">
               <p className="text-sm font-semibold text-secondary">{user.displayName}</p>
               <p className="pv-muted mt-1 text-xs">@{user.username}</p>
               <Button className="mt-3 w-full sm:w-auto" disabled={sendRequest.isPending} onClick={() => sendRequest.mutate(user.username)}>
@@ -106,7 +106,7 @@ export function FriendsPage() {
             </article>
           ))}
           {query.trim().length >= 2 && !searchQuery.isLoading && (searchQuery.data ?? []).length === 0 && (
-            <p className="pv-muted rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4 text-sm sm:col-span-2">Nenhum usuário encontrado para este nome.</p>
+            <p className="pv-muted rounded-2xl border border-primary bg-panel p-4 text-sm sm:col-span-2">Nenhum usuário encontrado para este nome.</p>
           )}
         </div>
       </section>
@@ -116,7 +116,7 @@ export function FriendsPage() {
           <h2 className="pv-title text-xl font-semibold text-secondary">Solicitações recebidas</h2>
           <div className="mt-4 space-y-3">
             {(requestsQuery.data ?? []).map((request) => (
-              <article key={request.id} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
+              <article key={request.id} className="rounded-2xl border border-primary bg-panel p-4">
                 <p className="text-sm text-secondary">{request.displayName}</p>
                 <p className="pv-muted mt-1 text-xs">@{request.username}</p>
                 <p className="pv-muted mt-1 text-xs">Recebida em {new Date(request.requestedAt).toLocaleString('pt-BR')}</p>
@@ -126,7 +126,7 @@ export function FriendsPage() {
               </article>
             ))}
             {!requestsQuery.isLoading && (requestsQuery.data ?? []).length === 0 && (
-              <p className="pv-muted rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4 text-sm">Nenhuma solicitação pendente.</p>
+              <p className="pv-muted rounded-2xl border border-primary bg-panel p-4 text-sm">Nenhuma solicitação pendente.</p>
             )}
           </div>
         </section>
@@ -135,14 +135,14 @@ export function FriendsPage() {
           <h2 className="pv-title text-xl font-semibold text-secondary">Meus amigos</h2>
           <div className="mt-4 space-y-3">
             {(friendsQuery.data ?? []).map((friend) => (
-              <article key={friend.userId} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
+              <article key={friend.userId} className="rounded-2xl border border-primary bg-panel p-4">
                 <p className="text-sm font-semibold text-secondary">{friend.displayName}</p>
                 <p className="pv-muted mt-1 text-xs">@{friend.username}</p>
                 <p className="pv-muted mt-1 text-xs">Conectado em {new Date(friend.connectedAt).toLocaleDateString('pt-BR')}</p>
               </article>
             ))}
             {!friendsQuery.isLoading && (friendsQuery.data ?? []).length === 0 && (
-              <p className="pv-muted rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4 text-sm">Você ainda não possui amigos adicionados.</p>
+              <p className="pv-muted rounded-2xl border border-primary bg-panel p-4 text-sm">Você ainda não possui amigos adicionados.</p>
             )}
           </div>
         </section>

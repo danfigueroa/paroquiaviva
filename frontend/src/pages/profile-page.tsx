@@ -73,32 +73,32 @@ export function ProfilePage() {
   return (
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Conta</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Conta</p>
         <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Meu perfil</h1>
         <p className="pv-muted mt-2 text-sm">Defina seu nome público e o @username único usado para amizades no sistema.</p>
 
         <form className="mt-6 grid gap-4 lg:grid-cols-2" onSubmit={onSubmit}>
           <div className="space-y-3">
-            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#9db19a]">
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-primary">
               Nome de exibição
               <Input onChange={(e) => setDisplayName(e.target.value)} placeholder="Como seu nome aparece no app" value={displayName} />
               <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Nome mostrado nos pedidos, grupos e amizades.</span>
             </label>
 
-            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#9db19a]">
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-primary">
               @username
               <Input onChange={(e) => setUsername(e.target.value.replace(/@/g, '').toLowerCase())} placeholder="seu_username" value={username} />
               <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Identificador único para encontrar e adicionar você.</span>
             </label>
           </div>
 
-          <div className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
+          <div className="rounded-2xl border border-primary bg-panel p-4">
             <p className="text-sm text-secondary">Prévia do perfil</p>
             <p className="mt-3 text-lg font-semibold text-secondary">{displayName || 'Seu nome'}</p>
             <p className="pv-muted mt-1 text-sm">@{username || 'username'}</p>
 
-            {status && <p className="mt-4 rounded-xl border border-[#365739] bg-[#17231a] px-3 py-2 text-sm text-[#b9dba8]">{status}</p>}
-            {error && <p className="mt-4 rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
+            {status && <p className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{status}</p>}
+            {error && <p className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{error}</p>}
 
             <Button className="mt-5 w-full sm:w-auto" disabled={saveProfile.isPending} type="submit">
               {saveProfile.isPending ? 'Salvando...' : 'Salvar alterações'}
