@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import { PageShell } from '@/components/page-shell'
@@ -14,6 +14,7 @@ type FeedItem = {
   body: string
   category: string
   visibility: 'PUBLIC' | 'GROUP_ONLY' | 'PRIVATE'
+  groupIds?: string[]
   groupNames?: string[]
   createdAt: string
   prayedCount: number
@@ -22,6 +23,7 @@ type FeedItem = {
 
 type FeedScope = 'home' | 'public' | 'groups' | 'friends'
 type ProfileMini = { id: string }
+type GroupLite = { id: string; name: string }
 type FeedPagination = { page: number; pageSize: number; total: number; totalPages: number }
 type FeedResponse = { items: FeedItem[]; pagination: FeedPagination }
 
@@ -113,6 +115,22 @@ export function FeedPage() {
       await queryClient.invalidateQueries({ queryKey: ['feed'] })
     }
   })
+  const groupsLookupQuery = useQuery({
+    queryKey: ['feed', 'group-lookup'],
+    enabled: Boolean(profileQuery.data?.id),
+    queryFn: async () => {
+      const res = await api.get<{ items: GroupLite[] }>('/groups')
+      return res.data.items ?? []
+    }
+  })
+
+  const groupNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const group of groupsLookupQuery.data ?? []) {
+      map.set(group.id, group.name)
+    }
+    return map
+  }, [groupsLookupQuery.data])
 
   const feedData = query.data
   const items = feedData?.items ?? []
@@ -178,28 +196,28 @@ export function FeedPage() {
   return (
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Feed social</p>
             <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Intenções e pedidos de oração</h1>
             <p className="pv-muted mt-2 text-sm">O feed principal mistura amigos e grupos. Público é uma aba secundária para descoberta.</p>
           </div>
-          <Link to="/requests/new">
-            <Button>Novo pedido</Button>
-          </Link>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-5 grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:items-center">
           {tabs.map((tab) => (
             <button
               key={tab.scope}
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${tab.scope === scope ? 'pv-chip-active' : 'pv-chip text-primary'}`}
+              className={`w-full rounded-full px-2 py-2 text-center text-sm font-semibold sm:w-auto sm:px-4 ${tab.scope === scope ? 'pv-chip-active' : 'pv-chip text-primary'}`}
               onClick={() => changeScope(tab.scope)}
               type="button"
             >
               {tab.label}
             </button>
           ))}
+          <Link className="col-span-4 w-full sm:ml-auto sm:w-auto" to="/requests/new">
+            <Button className="w-full sm:w-auto">Novo pedido</Button>
+          </Link>
         </div>
       </section>
 
@@ -220,6 +238,22 @@ export function FeedPage() {
         <div className="space-y-3">
           {items.map((item) => (
             <article key={item.id} className={`pv-panel rounded-2xl p-5 ${lastPrayerHit?.requestID === item.id ? 'pv-card-hit' : ''}`}>
+              {(() => {
+                const primaryGroupName = item.groupNames?.[0] || (item.groupIds?.[0] ? groupNameById.get(item.groupIds[0]) : undefined)
+                const extraGroupsCount = Math.max((item.groupNames?.length ?? 0) - 1, 0)
+                if (item.visibility !== 'GROUP_ONLY') {
+                  return null
+                }
+                return (
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary bg-panel px-3 py-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">Grupo</span>
+                    <span className="text-xs font-semibold text-secondary">{primaryGroupName || 'Grupo não identificado'}</span>
+                    {extraGroupsCount > 0 && (
+                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-onPrimary">+{extraGroupsCount}</span>
+                    )}
+                  </div>
+                )
+              })()}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-4">
                   <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-bg text-lg font-bold text-primary shadow-sm">
@@ -261,26 +295,29 @@ export function FeedPage() {
                   <Link className="text-xs text-primary hover:text-primary" to={`/requests/${item.id}`}>Editar pedido</Link>
                 )}
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
                 {prayerActions.map((action) => (
-                  <span key={`${item.id}-${action.type}`} className={lastPrayerHit?.requestID === item.id && lastPrayerHit?.actionType === action.type ? 'pv-prayer-chip-hit relative inline-flex rounded-full' : 'relative inline-flex rounded-full'}>
-                  {lastPrayerHit?.requestID === item.id && lastPrayerHit?.actionType === action.type && (
-                    <span className="pv-prayer-fx" key={`${item.id}-${action.type}-${lastPrayerHit.fxID}`}>
-                      <span className="pv-prayer-fx-ring" />
-                      <span className="pv-prayer-fx-emoji">{action.emoji}</span>
-                      <span className="pv-prayer-fx-spark pv-prayer-fx-spark-a" />
-                      <span className="pv-prayer-fx-spark pv-prayer-fx-spark-b" />
-                      <span className="pv-prayer-fx-spark pv-prayer-fx-spark-c" />
-                    </span>
-                  )}
-                  <button
-                    className="pv-chip rounded-full px-3 py-1 text-xs"
-                    disabled={prayMutation.isPending}
-                    onClick={() => prayMutation.mutate({ requestID: item.id, actionType: action.type })}
-                    type="button"
+                  <span
+                    key={`${item.id}-${action.type}`}
+                    className={`${lastPrayerHit?.requestID === item.id && lastPrayerHit?.actionType === action.type ? 'pv-prayer-chip-hit' : ''} relative inline-flex w-[146px] rounded-full sm:w-auto`}
                   >
-                    {action.emoji} {action.label} ({item.prayerTypeCounts?.[action.type] ?? 0})
-                  </button>
+                    {lastPrayerHit?.requestID === item.id && lastPrayerHit?.actionType === action.type && (
+                      <span className="pv-prayer-fx" key={`${item.id}-${action.type}-${lastPrayerHit.fxID}`}>
+                        <span className="pv-prayer-fx-ring" />
+                        <span className="pv-prayer-fx-emoji">{action.emoji}</span>
+                        <span className="pv-prayer-fx-spark pv-prayer-fx-spark-a" />
+                        <span className="pv-prayer-fx-spark pv-prayer-fx-spark-b" />
+                        <span className="pv-prayer-fx-spark pv-prayer-fx-spark-c" />
+                      </span>
+                    )}
+                    <button
+                      className="pv-chip w-full whitespace-nowrap rounded-full px-3 py-1 text-xs sm:w-auto"
+                      disabled={prayMutation.isPending}
+                      onClick={() => prayMutation.mutate({ requestID: item.id, actionType: action.type })}
+                      type="button"
+                    >
+                      {action.emoji} {action.label} ({item.prayerTypeCounts?.[action.type] ?? 0})
+                    </button>
                   </span>
                 ))}
               </div>
