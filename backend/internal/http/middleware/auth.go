@@ -11,11 +11,17 @@ import (
 func OptionalAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, userEmail, ok := parseToken(r, validator)
+			userID, userEmail, username, displayName, ok := parseToken(r, validator)
 			if ok {
 				ctx := SetContextValue(r.Context(), ContextKeyUserID, userID)
 				if userEmail != "" {
 					ctx = SetContextValue(ctx, ContextKeyUserEmail, userEmail)
+				}
+				if username != "" {
+					ctx = SetContextValue(ctx, ContextKeyUsername, username)
+				}
+				if displayName != "" {
+					ctx = SetContextValue(ctx, ContextKeyDisplayName, displayName)
 				}
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
@@ -28,7 +34,7 @@ func OptionalAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 func RequireAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, userEmail, ok := parseToken(r, validator)
+			userID, userEmail, username, displayName, ok := parseToken(r, validator)
 			if !ok {
 				writeUnauthorized(w)
 				return
@@ -37,27 +43,69 @@ func RequireAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 			if userEmail != "" {
 				ctx = SetContextValue(ctx, ContextKeyUserEmail, userEmail)
 			}
+			if username != "" {
+				ctx = SetContextValue(ctx, ContextKeyUsername, username)
+			}
+			if displayName != "" {
+				ctx = SetContextValue(ctx, ContextKeyDisplayName, displayName)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-func parseToken(r *http.Request, validator *auth.Validator) (string, string, bool) {
+func parseToken(r *http.Request, validator *auth.Validator) (string, string, string, string, bool) {
 	header := r.Header.Get("Authorization")
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return "", "", false
+		return "", "", "", "", false
 	}
 	claims, err := validator.ParseAndValidate(r.Context(), parts[1])
 	if err != nil {
-		return "", "", false
+		return "", "", "", "", false
 	}
 	sub, _ := claims["sub"].(string)
 	if sub == "" {
-		return "", "", false
+		return "", "", "", "", false
 	}
 	email, _ := claims["email"].(string)
-	return sub, email, true
+	username := claimString(claims, "preferred_username")
+	displayName := claimString(claims, "name")
+
+	if meta, ok := claims["user_metadata"].(map[string]any); ok {
+		if username == "" {
+			username = anyToString(meta["username"])
+		}
+		if displayName == "" {
+			displayName = anyToString(meta["display_name"])
+		}
+		if displayName == "" {
+			displayName = anyToString(meta["displayName"])
+		}
+	}
+	if meta, ok := claims["raw_user_meta_data"].(map[string]any); ok {
+		if username == "" {
+			username = anyToString(meta["username"])
+		}
+		if displayName == "" {
+			displayName = anyToString(meta["display_name"])
+		}
+		if displayName == "" {
+			displayName = anyToString(meta["displayName"])
+		}
+	}
+
+	return sub, email, username, displayName, true
+}
+
+func claimString(claims map[string]any, key string) string {
+	value, _ := claims[key]
+	return anyToString(value)
+}
+
+func anyToString(value any) string {
+	s, _ := value.(string)
+	return strings.TrimSpace(s)
 }
 
 func writeUnauthorized(w http.ResponseWriter) {

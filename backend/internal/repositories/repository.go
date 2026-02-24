@@ -28,7 +28,8 @@ var ErrPrayerRequestForbidden = errors.New("prayer request forbidden")
 type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
 	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error)
-	UpsertAuthUser(ctx context.Context, userID, email string) error
+	UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName string) error
+	UsernameExists(ctx context.Context, username string) (bool, error)
 	CreatePrayerRequest(ctx context.Context, in models.CreatePrayerRequestInput) (models.PrayerRequest, error)
 	UpdatePrayerRequest(ctx context.Context, in models.UpdatePrayerRequestInput) (models.PrayerRequest, error)
 	DeletePrayerRequest(ctx context.Context, userID, requestID string) error
@@ -90,17 +91,47 @@ func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, disp
 	return u, err
 }
 
-func (r *PostgresRepository) UpsertAuthUser(ctx context.Context, userID, email string) error {
+func (r *PostgresRepository) UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName string) error {
 	if userID == "" || email == "" {
 		return nil
 	}
+	preferredUsername = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(preferredUsername), "@"))
+	preferredDisplayName = strings.TrimSpace(preferredDisplayName)
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO users (id, email, username, display_name)
-		VALUES ($1, $2, 'user_' || SUBSTRING($1::text, 1, 8), SPLIT_PART($2, '@', 1))
+		VALUES (
+			$1,
+			$2,
+			COALESCE(NULLIF($3, ''), 'user_' || SUBSTRING($1::text, 1, 8)),
+			COALESCE(NULLIF($4, ''), SPLIT_PART($2, '@', 1))
+		)
 		ON CONFLICT (id) DO UPDATE
-		SET email = EXCLUDED.email, updated_at = NOW()
-	`, userID, email)
+		SET
+			email = EXCLUDED.email,
+			username = CASE
+				WHEN users.username = 'user_' || SUBSTRING(users.id::text, 1, 8) AND NULLIF($3, '') IS NOT NULL THEN $3
+				ELSE users.username
+			END,
+			display_name = CASE
+				WHEN users.display_name = SPLIT_PART(users.email, '@', 1) AND NULLIF($4, '') IS NOT NULL THEN $4
+				ELSE users.display_name
+			END,
+			updated_at = NOW()
+	`, userID, email, preferredUsername, preferredDisplayName)
 	return err
+}
+
+func (r *PostgresRepository) UsernameExists(ctx context.Context, username string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM users
+			WHERE deleted_at IS NULL
+			  AND LOWER(username) = LOWER($1)
+		)
+	`, username).Scan(&exists)
+	return exists, err
 }
 
 func (r *PostgresRepository) CreatePrayerRequest(ctx context.Context, in models.CreatePrayerRequestInput) (models.PrayerRequest, error) {

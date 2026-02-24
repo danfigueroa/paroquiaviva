@@ -5,9 +5,11 @@ import "context"
 type contextKey string
 
 const (
-	ContextKeyRequestID contextKey = "requestId"
-	ContextKeyUserID    contextKey = "userId"
-	ContextKeyUserEmail contextKey = "userEmail"
+	ContextKeyRequestID   contextKey = "requestId"
+	ContextKeyUserID      contextKey = "userId"
+	ContextKeyUserEmail   contextKey = "userEmail"
+	ContextKeyUsername    contextKey = "username"
+	ContextKeyDisplayName contextKey = "displayName"
 )
 
 func SetContextValue[T any](ctx context.Context, key contextKey, value T) context.Context {

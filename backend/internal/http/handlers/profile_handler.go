@@ -27,8 +27,7 @@ func NewProfileHandler(service *services.Service) *ProfileHandler {
 
 func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -42,8 +41,7 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -66,4 +64,18 @@ func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.WriteJSON(w, http.StatusOK, profile)
+}
+
+func (h *ProfileHandler) UsernameAvailability(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	available, err := h.service.IsUsernameAvailable(r.Context(), username)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidUsername) {
+			shared.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid username", nil)
+			return
+		}
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	shared.WriteJSON(w, http.StatusOK, map[string]any{"available": available})
 }

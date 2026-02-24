@@ -37,6 +37,7 @@ func NewRouter(cfg config.Config, logger *zap.Logger, service *services.Service)
 	r.Route("/api/v1", func(api chi.Router) {
 		api.With(middleware.OptionalAuth(validator)).Get("/feed", prayerHandler.ListPublic)
 		api.With(middleware.OptionalAuth(validator)).Get("/feed/public", prayerHandler.ListPublic)
+		api.Get("/username-availability", profileHandler.UsernameAvailability)
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(middleware.RequireAuth(validator))

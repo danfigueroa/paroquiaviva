@@ -71,8 +71,7 @@ func (h *PrayerHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 func (h *PrayerHandler) ListHome(w http.ResponseWriter, r *http.Request) {
 	limit, offset, page := parseFeedPagination(r)
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -92,8 +91,7 @@ func (h *PrayerHandler) ListHome(w http.ResponseWriter, r *http.Request) {
 func (h *PrayerHandler) ListGroupsFeed(w http.ResponseWriter, r *http.Request) {
 	limit, offset, page := parseFeedPagination(r)
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -113,8 +111,7 @@ func (h *PrayerHandler) ListGroupsFeed(w http.ResponseWriter, r *http.Request) {
 func (h *PrayerHandler) ListFriendsFeed(w http.ResponseWriter, r *http.Request) {
 	limit, offset, page := parseFeedPagination(r)
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -162,8 +159,7 @@ func writeFeedResponse(w http.ResponseWriter, items []models.PrayerRequest, page
 
 func (h *PrayerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -199,8 +195,7 @@ func (h *PrayerHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *PrayerHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -219,8 +214,7 @@ func (h *PrayerHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *PrayerHandler) Update(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -262,8 +256,7 @@ func (h *PrayerHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *PrayerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
@@ -282,8 +275,7 @@ func (h *PrayerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *PrayerHandler) Pray(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
-	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
-	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+	if err := ensureAuthUser(h.service, r); err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}

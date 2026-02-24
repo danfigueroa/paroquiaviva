@@ -37,7 +37,7 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (models.User, e
 
 func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error) {
 	displayName = strings.TrimSpace(displayName)
-	username = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(username), "@"))
+	username = normalizeUsername(username)
 	if displayName == "" {
 		current, err := s.repo.GetUserByID(ctx, userID)
 		if err == nil {
@@ -55,6 +55,22 @@ func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, userna
 		return models.User{}, ErrInvalidUsername
 	}
 	return s.repo.UpdateUserProfile(ctx, userID, displayName, username, avatarURL)
+}
+
+func (s *Service) IsUsernameAvailable(ctx context.Context, username string) (bool, error) {
+	username = normalizeUsername(username)
+	if len(username) < 3 || len(username) > 30 {
+		return false, ErrInvalidUsername
+	}
+	matched, _ := regexp.MatchString(`^[a-z0-9_]+$`, username)
+	if !matched {
+		return false, ErrInvalidUsername
+	}
+	exists, err := s.repo.UsernameExists(ctx, username)
+	if err != nil {
+		return false, err
+	}
+	return !exists, nil
 }
 
 func (s *Service) CreatePrayerRequest(ctx context.Context, in models.CreatePrayerRequestInput) (models.PrayerRequest, error) {
@@ -251,11 +267,17 @@ func (s *Service) SearchUsersForFriendship(ctx context.Context, userID, query st
 	return s.repo.SearchUsersForFriendship(ctx, userID, query, limit)
 }
 
-func (s *Service) EnsureAuthUser(ctx context.Context, userID, email string) error {
+func (s *Service) EnsureAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName string) error {
 	if strings.TrimSpace(email) == "" && strings.TrimSpace(userID) != "" {
 		email = userID + "@auth.local"
 	}
-	return s.repo.UpsertAuthUser(ctx, userID, email)
+	preferredUsername = normalizeUsername(preferredUsername)
+	preferredDisplayName = strings.TrimSpace(preferredDisplayName)
+	return s.repo.UpsertAuthUser(ctx, userID, email, preferredUsername, preferredDisplayName)
+}
+
+func normalizeUsername(value string) string {
+	return strings.TrimSpace(strings.TrimPrefix(strings.ToLower(value), "@"))
 }
 
 func isValidPrayerCategory(category models.PrayerCategory) bool {
