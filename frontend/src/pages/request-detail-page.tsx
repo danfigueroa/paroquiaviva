@@ -14,10 +14,10 @@ export function RequestDetailPage() {
 
   return (
     <PageShell>
-      <h1 className="text-xl font-semibold">Prayer Request</h1>
-      <p className="mt-2 text-sm text-slate-700">Request id: {id}</p>
+      <h1 className="text-xl font-semibold">Pedido de Oração</h1>
+      <p className="mt-2 text-sm text-slate-700">ID do pedido: {id}</p>
       <Button className="mt-4" onClick={() => pray.mutate()} disabled={pray.isPending}>
-        {pray.isPending ? 'Sending...' : 'I prayed'}
+        {pray.isPending ? 'Enviando...' : 'Eu orei'}
       </Button>
     </PageShell>
   )

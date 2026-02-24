@@ -13,7 +13,7 @@ export function ModerationPage() {
 
   return (
     <PageShell>
-      <h1 className="text-xl font-semibold">Moderation Queue</h1>
+      <h1 className="text-xl font-semibold">Fila de Moderação</h1>
       <pre className="mt-4 rounded-md bg-slate-900 p-4 text-xs text-white">{JSON.stringify(queue.data, null, 2)}</pre>
     </PageShell>
   )

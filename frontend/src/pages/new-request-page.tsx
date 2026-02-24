@@ -33,24 +33,24 @@ export function NewRequestPage() {
   return (
     <PageShell>
       <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold">New Prayer Request</h1>
+        <h1 className="text-xl font-semibold">Novo Pedido de Oração</h1>
         <form onSubmit={onSubmit} className="mt-4 space-y-3">
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-          <TextArea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Share your prayer request" />
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" />
+          <TextArea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Compartilhe seu pedido de oração" />
           <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
-            <option value="HEALTH">HEALTH</option>
-            <option value="FAMILY">FAMILY</option>
-            <option value="WORK">WORK</option>
-            <option value="GRIEF">GRIEF</option>
-            <option value="THANKSGIVING">THANKSGIVING</option>
-            <option value="OTHER">OTHER</option>
+            <option value="HEALTH">Saúde</option>
+            <option value="FAMILY">Família</option>
+            <option value="WORK">Trabalho</option>
+            <option value="GRIEF">Luto</option>
+            <option value="THANKSGIVING">Ação de graças</option>
+            <option value="OTHER">Outro</option>
           </select>
           <select value={visibility} onChange={(e) => setVisibility(e.target.value)} className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm">
-            <option value="GROUP_ONLY">GROUP_ONLY</option>
-            <option value="PRIVATE">PRIVATE</option>
-            <option value="PUBLIC">PUBLIC</option>
+            <option value="GROUP_ONLY">Somente grupo</option>
+            <option value="PRIVATE">Privado</option>
+            <option value="PUBLIC">Público</option>
           </select>
-          <Button type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? 'Saving...' : 'Create request'}</Button>
+          <Button type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? 'Salvando...' : 'Criar pedido'}</Button>
         </form>
       </section>
     </PageShell>

@@ -20,7 +20,7 @@ export function ProfilePage() {
 
   return (
     <PageShell>
-      <h1 className="text-xl font-semibold">Profile</h1>
+      <h1 className="text-xl font-semibold">Perfil</h1>
       <pre className="mt-4 rounded-md bg-slate-900 p-4 text-xs text-white">{JSON.stringify(profile.data, null, 2)}</pre>
     </PageShell>
   )

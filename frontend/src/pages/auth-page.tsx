@@ -14,13 +14,13 @@ export function AuthPage() {
   return (
     <PageShell>
       <section className="rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold">Sign in or sign up</h1>
+        <h1 className="text-xl font-semibold">Entrar ou criar conta</h1>
         <form onSubmit={onSubmit} className="mt-4 space-y-3">
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" />
-          <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" />
+          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail" type="email" />
+          <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Senha" type="password" />
           <div className="flex gap-2">
-            <Button type="submit">Continue</Button>
-            <Button type="button" variant="secondary">Send magic link</Button>
+            <Button type="submit">Continuar</Button>
+            <Button type="button" variant="secondary">Enviar link mágico</Button>
           </div>
         </form>
       </section>

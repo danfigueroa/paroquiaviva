@@ -21,13 +21,13 @@ export function FeedPage() {
 
   return (
     <PageShell>
-      <h1 className="mb-4 text-xl font-semibold">Public Feed</h1>
+      <h1 className="mb-4 text-xl font-semibold">Mural Público</h1>
       <div className="space-y-3">
         {(query.data ?? []).map((item) => (
           <article key={item.id} className="rounded-lg bg-white p-4 shadow-sm">
             <h2 className="font-semibold">{item.title}</h2>
             <p className="mt-1 text-sm text-slate-700">{item.body}</p>
-            <p className="mt-2 text-xs text-slate-500">{item.category} • Prayed {item.prayedCount}</p>
+            <p className="mt-2 text-xs text-slate-500">{item.category} • Orou {item.prayedCount}</p>
           </article>
         ))}
       </div>

@@ -9,9 +9,9 @@ export function PageShell({ children }: PropsWithChildren) {
           Parish Viva
         </Link>
         <nav className="flex gap-3 text-sm">
-          <Link to="/feed">Feed</Link>
-          <Link to="/requests/new">New Request</Link>
-          <Link to="/profile">Profile</Link>
+          <Link to="/feed">Mural</Link>
+          <Link to="/requests/new">Novo Pedido</Link>
+          <Link to="/profile">Perfil</Link>
         </nav>
       </header>
       <main className="flex-1">{children}</main>
