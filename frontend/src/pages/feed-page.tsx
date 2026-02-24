@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import { PageShell } from '@/components/page-shell'
 import { api } from '@/lib/api'
@@ -79,17 +79,23 @@ export function FeedPage() {
   const scope: FeedScope = rawScope && tabs.some((tab) => tab.scope === rawScope) ? rawScope : 'home'
   const rawPage = Number.parseInt(searchParams.get('page') || '1', 10)
   const page = Number.isNaN(rawPage) || rawPage < 1 ? 1 : rawPage
-  const offset = (page - 1) * feedPageSize
   const activeTab = tabs.find((tab) => tab.scope === scope) ?? tabs[0]
+
+  const fetchFeed = async (targetScope: FeedScope, targetPage: number) => {
+    const targetTab = tabs.find((tab) => tab.scope === targetScope) ?? tabs[0]
+    const targetOffset = (targetPage - 1) * feedPageSize
+    const res = await api.get<FeedResponse>(targetTab.endpoint, {
+      params: { limit: feedPageSize, offset: targetOffset }
+    })
+    return res.data
+  }
 
   const query = useQuery({
     queryKey: ['feed', scope, page],
-    queryFn: async () => {
-      const res = await api.get<FeedResponse>(activeTab.endpoint, {
-        params: { limit: feedPageSize, offset }
-      })
-      return res.data
-    }
+    queryFn: async () => fetchFeed(scope, page),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000
   })
   const profileQuery = useQuery({
     queryKey: ['profile', 'feed'],
@@ -108,6 +114,11 @@ export function FeedPage() {
     }
   })
 
+  const feedData = query.data
+  const items = feedData?.items ?? []
+  const totalPages = Math.max(feedData?.pagination?.totalPages ?? 1, 1)
+  const isUnauthorized = (query.error as any)?.response?.status === 401
+
   useEffect(() => {
     if (!lastPrayerHit) {
       return
@@ -116,10 +127,40 @@ export function FeedPage() {
     return () => window.clearTimeout(timer)
   }, [lastPrayerHit])
 
-  const feedData = query.data
-  const items = feedData?.items ?? []
-  const totalPages = Math.max(feedData?.pagination?.totalPages ?? 1, 1)
-  const isUnauthorized = (query.error as any)?.response?.status === 401
+  useEffect(() => {
+    const canPrefetchProtectedTabs = Boolean(profileQuery.data?.id)
+    for (const tab of tabs) {
+      if (tab.scope === scope) {
+        continue
+      }
+      if (tab.requiresAuth && !canPrefetchProtectedTabs) {
+        continue
+      }
+      queryClient.prefetchQuery({
+        queryKey: ['feed', tab.scope, page],
+        queryFn: () => fetchFeed(tab.scope, page),
+        staleTime: 30_000
+      })
+    }
+  }, [scope, page, profileQuery.data?.id, queryClient])
+
+  useEffect(() => {
+    if (isUnauthorized) {
+      return
+    }
+    if (query.isLoading) {
+      return
+    }
+    if (feedData && page >= totalPages) {
+      return
+    }
+    const nextPage = page + 1
+    queryClient.prefetchQuery({
+      queryKey: ['feed', scope, nextPage],
+      queryFn: () => fetchFeed(scope, nextPage),
+      staleTime: 30_000
+    })
+  }, [scope, page, totalPages, isUnauthorized, query.isLoading, feedData, queryClient])
 
   const changeScope = (nextScope: FeedScope) => {
     setSearchParams({ scope: nextScope, page: '1' })
@@ -164,6 +205,7 @@ export function FeedPage() {
 
       <section className="mt-5 w-full space-y-3">
         {query.isLoading && <div className="pv-panel rounded-2xl p-4 text-sm pv-muted">Carregando intenções...</div>}
+        {query.isFetching && !query.isLoading && <div className="text-xs text-[#9fb3a7]">Atualizando feed...</div>}
 
         {isUnauthorized && activeTab.requiresAuth && (
           <div className="pv-panel rounded-2xl p-4 text-sm">
