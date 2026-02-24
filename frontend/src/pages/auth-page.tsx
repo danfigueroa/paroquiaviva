@@ -4,6 +4,7 @@ import { Input } from '@/components/input'
 import { Button } from '@/components/button'
 import { getSupabaseClient } from '@/lib/supabase'
 import { useSessionStore } from '@/state/session-store'
+import { api } from '@/lib/api'
 
 type AuthMode = 'signin' | 'signup'
 
@@ -14,6 +15,8 @@ export function AuthPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [username, setUsername] = useState('')
   const [mode, setMode] = useState<AuthMode>('signin')
   const [isLoading, setIsLoading] = useState(false)
   const [info, setInfo] = useState('')
@@ -55,9 +58,34 @@ export function AuthPage() {
         return
       }
       if (mode === 'signup') {
+        const normalizedUsername = username.trim().replace(/^@+/, '').toLowerCase()
+        const normalizedDisplayName = displayName.trim()
+        if (normalizedDisplayName.length < 2 || normalizedDisplayName.length > 80) {
+          setError('Informe um nome de exibição entre 2 e 80 caracteres.')
+          return
+        }
+        if (!/^[a-z0-9_]{3,30}$/.test(normalizedUsername)) {
+          setError('Use um @username de 3 a 30 caracteres, apenas letras minúsculas, números e _.')
+          return
+        }
+
+        const availability = await api.get<{ available: boolean }>('/username-availability', {
+          params: { username: normalizedUsername }
+        })
+        if (!availability.data.available) {
+          setError('Este @username já está em uso.')
+          return
+        }
+
         const { error: signUpError } = await supabase.auth.signUp({
           email,
-          password
+          password,
+          options: {
+            data: {
+              username: normalizedUsername,
+              display_name: normalizedDisplayName
+            }
+          }
         })
         if (signUpError) {
           setError(signUpError.message)
@@ -193,6 +221,12 @@ export function AuthPage() {
         <p className="pv-muted mt-2 text-sm">Entre com e-mail e senha ou use acesso sem senha por e-mail.</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
+          {mode === 'signup' && (
+            <>
+              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Nome de exibição" />
+              <Input value={username} onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))} placeholder="@username único" />
+            </>
+          )}
           <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Seu e-mail" type="email" />
           <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha" type="password" />
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
