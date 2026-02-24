@@ -21,7 +21,7 @@ export function ModerationPage() {
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Governança</p>
-        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Fila de moderação</h1>
+        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Fila de moderação</h1>
         <p className="pv-muted mt-2 text-sm">Acompanhe os itens pendentes e mantenha um ambiente seguro para a comunidade.</p>
       </section>
 

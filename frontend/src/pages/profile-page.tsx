@@ -74,7 +74,7 @@ export function ProfilePage() {
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Conta</p>
-        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Meu perfil</h1>
+        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Meu perfil</h1>
         <p className="pv-muted mt-2 text-sm">Defina seu nome público e o @username único usado para amizades no sistema.</p>
 
         <form className="mt-6 grid gap-4 lg:grid-cols-2" onSubmit={onSubmit}>
@@ -100,7 +100,7 @@ export function ProfilePage() {
             {status && <p className="mt-4 rounded-xl border border-[#365739] bg-[#17231a] px-3 py-2 text-sm text-[#b9dba8]">{status}</p>}
             {error && <p className="mt-4 rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
 
-            <Button className="mt-5" disabled={saveProfile.isPending} type="submit">
+            <Button className="mt-5 w-full sm:w-auto" disabled={saveProfile.isPending} type="submit">
               {saveProfile.isPending ? 'Salvando...' : 'Salvar alterações'}
             </Button>
           </div>

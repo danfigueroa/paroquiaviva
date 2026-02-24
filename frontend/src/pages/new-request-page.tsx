@@ -66,7 +66,7 @@ export function NewRequestPage() {
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Novo conteúdo</p>
-        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Criar pedido de oração</h1>
+        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Criar pedido de oração</h1>
         <p className="pv-muted mt-2 text-sm">Escreva com carinho e clareza para que sua comunidade possa orar junto com você.</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -116,8 +116,8 @@ export function NewRequestPage() {
 
           <div className="space-y-4 lg:col-span-1">
             <TextArea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Compartilhe seu pedido de oração" className="min-h-[190px]" />
-            <div className="flex justify-end">
-              <Button type="submit" disabled={createMutation.isPending}>
+            <div className="flex justify-stretch sm:justify-end">
+              <Button className="w-full sm:w-auto" type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending ? 'Salvando...' : 'Publicar pedido'}
               </Button>
             </div>

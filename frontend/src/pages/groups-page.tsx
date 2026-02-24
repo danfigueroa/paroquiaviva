@@ -94,13 +94,13 @@ export function GroupsPage() {
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Rede de grupos</p>
-        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Comunidades de oração</h1>
+        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Comunidades de oração</h1>
         <p className="pv-muted mt-2 text-sm">Crie grupos, organize pedidos por comunidade e aprove novos membros quando você for admin.</p>
       </section>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <section className="pv-panel rounded-3xl p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="pv-title text-xl font-semibold text-secondary">Meus grupos</h2>
             {selectedGroup && (
               <Link className="text-sm text-[#f2c5b6]" to={`/groups/${selectedGroup}`}>
@@ -146,7 +146,7 @@ export function GroupsPage() {
               <option value="REQUEST">Solicitação</option>
               <option value="INVITE_ONLY">Somente convite</option>
             </select>
-            <Button disabled={createGroup.isPending} type="submit">
+            <Button className="w-full sm:w-auto" disabled={createGroup.isPending} type="submit">
               {createGroup.isPending ? 'Criando...' : 'Criar grupo'}
             </Button>
             {error && <p className="rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
@@ -164,7 +164,7 @@ export function GroupsPage() {
             <article key={request.id} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
               <p className="text-sm text-secondary">Usuário: {request.userId}</p>
               <p className="pv-muted mt-1 text-xs">Solicitado em {new Date(request.requestedAt).toLocaleString('pt-BR')}</p>
-              <Button className="mt-3" onClick={() => approveRequest.mutate(request.id)}>
+              <Button className="mt-3 w-full sm:w-auto" onClick={() => approveRequest.mutate(request.id)}>
                 Aprovar membro
               </Button>
             </article>

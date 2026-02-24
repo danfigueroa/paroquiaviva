@@ -27,6 +27,7 @@ body,
 
 body {
   margin: 0;
+  overflow-x: hidden;
   color: var(--text);
   background:
     radial-gradient(1000px 500px at 10% -5%, rgba(45, 79, 30, 0.36), transparent 60%),

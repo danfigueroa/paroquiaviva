@@ -35,7 +35,7 @@ export function GroupPage() {
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Administração</p>
-        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Gestão de membros do grupo</h1>
+        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Gestão de membros do grupo</h1>
         <p className="pv-muted mt-2 text-sm">Grupo selecionado: {id}</p>
       </section>
 
@@ -46,7 +46,7 @@ export function GroupPage() {
             <article key={item.id} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
               <p className="text-sm text-secondary">Usuário: {item.userId}</p>
               <p className="pv-muted mt-1 text-xs">{new Date(item.requestedAt).toLocaleString('pt-BR')}</p>
-              <Button className="mt-3" disabled={approve.isPending} onClick={() => approve.mutate(item.id)}>
+              <Button className="mt-3 w-full sm:w-auto" disabled={approve.isPending} onClick={() => approve.mutate(item.id)}>
                 Aprovar membro
               </Button>
             </article>

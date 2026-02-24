@@ -152,7 +152,7 @@ export function RequestDetailPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Pedido de oração</p>
-            <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Detalhe da intenção</h1>
+            <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Detalhe da intenção</h1>
           </div>
           <Link className="text-sm text-[#f2c5b6] hover:text-[#ffd8cc]" to="/feed">Voltar ao mural</Link>
         </div>
@@ -163,7 +163,7 @@ export function RequestDetailPage() {
         {requestQuery.data && (
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
             <article className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-5">
-              <p className="text-lg font-semibold text-secondary">{requestQuery.data.title}</p>
+              <p className="break-words text-lg font-semibold text-secondary">{requestQuery.data.title}</p>
               <p className="pv-muted mt-2 text-sm leading-relaxed">{requestQuery.data.body}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {prayerActions.map((action) => (
@@ -223,9 +223,9 @@ export function RequestDetailPage() {
                       </div>
                     </div>
                   )}
-                  <div className="flex flex-wrap gap-2">
-                    <Button disabled={update.isPending} type="submit">{update.isPending ? 'Salvando...' : 'Salvar alterações'}</Button>
-                    <Button disabled={remove.isPending} onClick={() => remove.mutate()} type="button" variant="secondary">Excluir pedido</Button>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <Button className="w-full sm:w-auto" disabled={update.isPending} type="submit">{update.isPending ? 'Salvando...' : 'Salvar alterações'}</Button>
+                    <Button className="w-full sm:w-auto" disabled={remove.isPending} onClick={() => remove.mutate()} type="button" variant="secondary">Excluir pedido</Button>
                   </div>
                 </div>
               </form>

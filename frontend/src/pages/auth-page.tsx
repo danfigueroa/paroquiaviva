@@ -151,7 +151,7 @@ export function AuthPage() {
       <section className="pv-panel flex h-full flex-col justify-between rounded-3xl p-8 sm:p-10">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#a9b99f]">Paróquia Viva</p>
-          <h1 className="pv-title mt-5 text-4xl font-bold leading-[1.08] text-secondary sm:text-[46px]">Conecte sua comunidade em uma rede de oração viva.</h1>
+          <h1 className="pv-title mt-5 text-3xl font-bold leading-[1.08] text-secondary sm:text-4xl lg:text-[46px]">Conecte sua comunidade em uma rede de oração viva.</h1>
           <p className="pv-muted mt-5 max-w-md text-base leading-relaxed">Compartilhe intenções, acompanhe pedidos de amigos e grupos, e fortaleça os laços da sua paróquia em um ambiente acolhedor.</p>
         </div>
 
@@ -189,15 +189,15 @@ export function AuthPage() {
           </button>
         </div>
 
-        <h2 className="pv-title mt-6 text-3xl font-semibold text-secondary">{mode === 'signin' ? 'Acessar conta' : 'Criar conta'}</h2>
+        <h2 className="pv-title mt-6 text-2xl font-semibold text-secondary sm:text-3xl">{mode === 'signin' ? 'Acessar conta' : 'Criar conta'}</h2>
         <p className="pv-muted mt-2 text-sm">Entre com e-mail e senha ou use acesso sem senha por e-mail.</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Seu e-mail" type="email" />
           <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha" type="password" />
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={isLoading} type="submit">{mode === 'signin' ? 'Entrar' : 'Criar conta'}</Button>
-            <Button disabled={isLoading} onClick={onPasswordlessEmail} type="button" variant="secondary">Acesso sem senha</Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button className="w-full sm:w-auto" disabled={isLoading} type="submit">{mode === 'signin' ? 'Entrar' : 'Criar conta'}</Button>
+            <Button className="w-full sm:w-auto" disabled={isLoading} onClick={onPasswordlessEmail} type="button" variant="secondary">Acesso sem senha</Button>
           </div>
         </form>
 
@@ -206,7 +206,7 @@ export function AuthPage() {
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-8 text-sm">
           <button className="pv-muted hover:text-secondary" onClick={onResetPassword} type="button">Redefinir senha</button>
-          <span className="pv-muted">Após autenticar, você entra no feed principal</span>
+          <span className="pv-muted hidden sm:inline">Após autenticar, você entra no feed principal</span>
         </div>
       </section>
     </div>

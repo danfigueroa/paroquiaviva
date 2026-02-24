@@ -87,12 +87,12 @@ export function FriendsPage() {
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Rede de amigos</p>
-        <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Conectar pessoas da comunidade</h1>
+        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Conectar pessoas da comunidade</h1>
         <p className="pv-muted mt-2 text-sm">Busque usuários pelo nome dentro do sistema e envie solicitações de amizade.</p>
 
-        <form className="mt-5 flex gap-2" onSubmit={onSearch}>
+        <form className="mt-5 flex flex-col gap-2 sm:flex-row" onSubmit={onSearch}>
           <Input onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por @username ou nome" value={query} />
-          <Button type="submit">Buscar</Button>
+          <Button className="w-full sm:w-auto" type="submit">Buscar</Button>
         </form>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -100,7 +100,7 @@ export function FriendsPage() {
             <article key={user.userId} className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
               <p className="text-sm font-semibold text-secondary">{user.displayName}</p>
               <p className="pv-muted mt-1 text-xs">@{user.username}</p>
-              <Button className="mt-3" disabled={sendRequest.isPending} onClick={() => sendRequest.mutate(user.username)}>
+              <Button className="mt-3 w-full sm:w-auto" disabled={sendRequest.isPending} onClick={() => sendRequest.mutate(user.username)}>
                 Adicionar amigo
               </Button>
             </article>
@@ -120,7 +120,7 @@ export function FriendsPage() {
                 <p className="text-sm text-secondary">{request.displayName}</p>
                 <p className="pv-muted mt-1 text-xs">@{request.username}</p>
                 <p className="pv-muted mt-1 text-xs">Recebida em {new Date(request.requestedAt).toLocaleString('pt-BR')}</p>
-                <Button className="mt-3" disabled={acceptRequest.isPending} onClick={() => acceptRequest.mutate(request.id)}>
+                <Button className="mt-3 w-full sm:w-auto" disabled={acceptRequest.isPending} onClick={() => acceptRequest.mutate(request.id)}>
                   Aceitar amizade
                 </Button>
               </article>
