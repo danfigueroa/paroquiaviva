@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { PropsWithChildren, useState } from 'react'
+import { PropsWithChildren, useEffect, useState } from 'react'
+import { getSupabaseClient } from '@/lib/supabase'
+import { useSessionStore } from '@/state/session-store'
 
 export function AppProviders({ children }: PropsWithChildren) {
+  const setAccessToken = useSessionStore((s) => s.setAccessToken)
   const [client] = useState(
     () =>
       new QueryClient({
@@ -13,6 +16,30 @@ export function AppProviders({ children }: PropsWithChildren) {
         }
       })
   )
+
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      return
+    }
+
+    let isMounted = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) {
+        return
+      }
+      setAccessToken(data.session?.access_token ?? null)
+    })
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAccessToken(session?.access_token ?? null)
+    })
+
+    return () => {
+      isMounted = false
+      data.subscription.unsubscribe()
+    }
+  }, [setAccessToken])
 
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }

@@ -40,6 +40,14 @@ export function NewRequestPage() {
       navigate(visibility === 'PUBLIC' ? '/feed?scope=public' : '/feed')
     },
     onError: (err: any) => {
+      if (err?.response?.status === 401) {
+        setError('Sua sessão expirou. Entre novamente para publicar o pedido.')
+        return
+      }
+      if (!err?.response) {
+        setError('Backend indisponível. Verifique se a API está rodando em http://localhost:8080.')
+        return
+      }
       setError(err?.response?.data?.error?.message || 'Não foi possível criar o pedido.')
     }
   })
