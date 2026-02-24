@@ -44,6 +44,22 @@ func (h *GroupHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
+func (h *GroupHandler) Search(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
+	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+		return
+	}
+	query := r.URL.Query().Get("q")
+	items, err := h.service.SearchGroupsByName(r.Context(), userID, query, 20)
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
 func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
 	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)

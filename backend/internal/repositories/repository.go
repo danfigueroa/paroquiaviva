@@ -43,6 +43,7 @@ type Repository interface {
 	CountHomePrayerRequests(ctx context.Context, userID string) (int64, error)
 	RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error
 	ListUserGroups(ctx context.Context, userID string) ([]models.Group, error)
+	SearchGroupsByName(ctx context.Context, userID, query string, limit int) ([]models.GroupSummary, error)
 	CreateGroup(ctx context.Context, userID, name, description string, imageURL *string, joinPolicy models.GroupJoinPolicy) (models.Group, error)
 	RequestJoinGroup(ctx context.Context, userID, groupID string) error
 	ListGroupJoinRequests(ctx context.Context, actorUserID, groupID string) ([]models.GroupJoinRequest, error)
@@ -542,6 +543,48 @@ func (r *PostgresRepository) ListUserGroups(ctx context.Context, userID string) 
 			return nil, err
 		}
 		items = append(items, g)
+	}
+	return items, rows.Err()
+}
+
+func (r *PostgresRepository) SearchGroupsByName(ctx context.Context, userID, query string, limit int) ([]models.GroupSummary, error) {
+	if limit <= 0 || limit > 30 {
+		limit = 20
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			g.id::text,
+			g.name,
+			g.description,
+			g.join_policy,
+			EXISTS (
+				SELECT 1
+				FROM group_memberships gm
+				WHERE gm.group_id = g.id
+				  AND gm.user_id = $1
+				  AND gm.deleted_at IS NULL
+			) AS is_member
+		FROM groups g
+		WHERE g.deleted_at IS NULL
+		  AND (
+			g.name ILIKE '%' || $2 || '%'
+			OR g.description ILIKE '%' || $2 || '%'
+		  )
+		ORDER BY g.name ASC
+		LIMIT $3
+	`, userID, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.GroupSummary, 0)
+	for rows.Next() {
+		var item models.GroupSummary
+		if err = rows.Scan(&item.ID, &item.Name, &item.Description, &item.JoinPolicy, &item.IsMember); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
 	}
 	return items, rows.Err()
 }

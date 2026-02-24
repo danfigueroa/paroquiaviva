@@ -183,6 +183,14 @@ func (s *Service) ListUserGroups(ctx context.Context, userID string) ([]models.G
 	return s.repo.ListUserGroups(ctx, userID)
 }
 
+func (s *Service) SearchGroupsByName(ctx context.Context, userID, query string, limit int) ([]models.GroupSummary, error) {
+	query = strings.TrimSpace(strings.TrimPrefix(query, "@"))
+	if query == "" {
+		return []models.GroupSummary{}, nil
+	}
+	return s.repo.SearchGroupsByName(ctx, userID, query, limit)
+}
+
 func (s *Service) CreateGroup(ctx context.Context, userID, name, description string, imageURL *string, joinPolicy models.GroupJoinPolicy) (models.Group, error) {
 	name = strings.TrimSpace(name)
 	description = strings.TrimSpace(description)

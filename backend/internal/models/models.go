@@ -129,6 +129,14 @@ type Group struct {
 	UpdatedAt          time.Time       `json:"updatedAt"`
 }
 
+type GroupSummary struct {
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	JoinPolicy  GroupJoinPolicy `json:"joinPolicy"`
+	IsMember    bool            `json:"isMember"`
+}
+
 type GroupJoinRequest struct {
 	ID          string    `json:"id"`
 	GroupID     string    `json:"groupId"`
