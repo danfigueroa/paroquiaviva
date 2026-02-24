@@ -32,6 +32,8 @@ type MyGroup = {
   joinPolicy: 'OPEN' | 'REQUEST' | 'INVITE_ONLY'
 }
 
+type ThemeVariant = 'light' | 'dark'
+
 export function PageShell({ children }: PropsWithChildren) {
   const navigate = useNavigate()
   const setAccessToken = useSessionStore((s) => s.setAccessToken)
@@ -40,6 +42,13 @@ export function PageShell({ children }: PropsWithChildren) {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [searchNotice, setSearchNotice] = useState('')
+  const [theme, setTheme] = useState<ThemeVariant>(() => {
+    if (typeof window === 'undefined') {
+      return 'light'
+    }
+    const savedTheme = window.localStorage.getItem('pv-theme')
+    return savedTheme === 'dark' || savedTheme === 'vibrant' ? 'dark' : 'light'
+  })
   const [requestedUsers, setRequestedUsers] = useState<Record<string, boolean>>({})
   const [requestedGroups, setRequestedGroups] = useState<Record<string, boolean>>({})
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -191,9 +200,14 @@ export function PageShell({ children }: PropsWithChildren) {
     return () => window.clearTimeout(timer)
   }, [searchNotice])
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    window.localStorage.setItem('pv-theme', theme)
+  }, [theme])
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-6 sm:px-6">
-      <header className="mb-6 rounded-2xl border border-[#2d3a2f] bg-[#111714]/90 p-4 backdrop-blur">
+      <header className="mb-6 rounded-2xl border border-primary bg-panel/90 p-4 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <Link to="/" className="shrink-0 text-lg font-semibold text-secondary">
             Paróquia Viva
@@ -205,21 +219,40 @@ export function PageShell({ children }: PropsWithChildren) {
               onClick={() => setMenuOpen((prev) => !prev)}
               type="button"
             >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#3f2a24] text-xs font-bold text-[#f4d6cb]">{avatarLetter}</span>
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-panel text-xs font-bold text-primary">{avatarLetter}</span>
               <span className="hidden max-w-[150px] truncate text-sm text-secondary sm:inline">{displayName}</span>
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-[#334236] bg-[#121915] p-2 shadow-[0_20px_50px_-25px_rgba(0,0,0,0.8)]">
+              <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-primary bg-panel p-2 shadow-[0_20px_50px_-25px_rgba(var(--shadow-rgb),0.45)]">
                 <div className="px-3 py-2">
                   <p className="truncate text-sm font-semibold text-secondary">{displayName}</p>
                   <p className="pv-muted truncate text-xs">{username || profileQuery.data?.email || ''}</p>
                 </div>
-                <Link className="block rounded-xl px-3 py-2 text-sm text-[#e8dcca] hover:bg-[#1b2520]" onClick={() => setMenuOpen(false)} to="/profile">
+                <div className="mb-1 px-3 pb-2 pt-1">
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Tema</p>
+                  <div className="flex gap-1.5">
+                    <button
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${theme === 'light' ? 'pv-chip-active' : 'pv-chip'}`}
+                      onClick={() => setTheme('light')}
+                      type="button"
+                    >
+                      Claro
+                    </button>
+                    <button
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${theme === 'dark' ? 'pv-chip-active' : 'pv-chip'}`}
+                      onClick={() => setTheme('dark')}
+                      type="button"
+                    >
+                      Escuro
+                    </button>
+                  </div>
+                </div>
+                <Link className="block rounded-xl px-3 py-2 text-sm text-primary hover:bg-panel" onClick={() => setMenuOpen(false)} to="/profile">
                   Ver perfil
                 </Link>
                 <button
-                  className="block w-full rounded-xl px-3 py-2 text-left text-sm text-[#f0c7b8] hover:bg-[#2a1d19]"
+                  className="block w-full rounded-xl px-3 py-2 text-left text-sm text-primary hover:bg-panel"
                   onClick={onLogout}
                   type="button"
                 >
@@ -243,7 +276,7 @@ export function PageShell({ children }: PropsWithChildren) {
 
           <div className="relative w-full" ref={searchRef}>
             <input
-              className="h-10 w-full rounded-xl border border-[#2f3f34] bg-[#0f1713] px-3 text-sm text-secondary outline-none transition focus:border-[#e27d60] focus:ring-2 focus:ring-[#e27d60]/25"
+              className="h-10 w-full rounded-xl border border-primary bg-panel px-3 text-sm text-secondary outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25"
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => setSearchOpen(true)}
               placeholder="Buscar amigos e grupos"
@@ -251,27 +284,27 @@ export function PageShell({ children }: PropsWithChildren) {
             />
 
             {searchOpen && (
-              <div className="absolute right-0 z-30 mt-2 max-h-[60vh] w-full overflow-y-auto rounded-2xl border border-[#334236] bg-[#121915] p-3 shadow-[0_24px_55px_-30px_rgba(0,0,0,0.9)]">
+              <div className="absolute right-0 z-30 mt-2 max-h-[60vh] w-full overflow-y-auto rounded-2xl border border-primary bg-panel p-3 shadow-[0_24px_55px_-30px_rgba(var(--shadow-rgb),0.55)]">
                 {normalizedSearch.length < 2 && (
                   <p className="pv-muted text-xs">Digite pelo menos 2 caracteres para buscar amigos e grupos.</p>
                 )}
 
                 {searchNotice && (
-                  <p className="mb-2 rounded-lg border border-[#2b5b41] bg-[#153123] px-2 py-1 text-xs text-[#bde7c9]">{searchNotice}</p>
+                  <p className="mb-2 rounded-lg border border-primary bg-panel px-2 py-1 text-xs text-primary">{searchNotice}</p>
                 )}
 
                 {normalizedSearch.length >= 2 && (
                   <div className="space-y-3">
                     <div>
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9ab19f]">Amigos</p>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Amigos</p>
                       <div className="space-y-1.5">
                         {(usersSearchQuery.data ?? []).map((user) => {
                           const alreadyRequested = requestedUsers[user.username.toLowerCase()]
                           return (
-                            <div key={user.userId} className="flex items-center justify-between rounded-xl border border-[#2a3830] bg-[#141d18] px-2.5 py-2">
+                            <div key={user.userId} className="flex items-center justify-between rounded-xl border border-primary bg-panel px-2.5 py-2">
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-secondary">{user.displayName}</p>
-                                <p className="truncate text-xs text-[#b9a99b]">@{user.username}</p>
+                                <p className="truncate text-xs text-primary">@{user.username}</p>
                               </div>
                               <button
                                 className="pv-chip shrink-0 rounded-full px-2.5 py-1 text-xs disabled:opacity-50"
@@ -291,15 +324,15 @@ export function PageShell({ children }: PropsWithChildren) {
                     </div>
 
                     <div>
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9ab19f]">Grupos</p>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">Grupos</p>
                       <div className="space-y-1.5">
                         {(groupsSearchQuery.data ?? []).map((group) => {
                           const alreadyRequested = requestedGroups[group.id]
                           return (
-                            <div key={group.id} className="flex items-center justify-between rounded-xl border border-[#2a3830] bg-[#141d18] px-2.5 py-2">
+                            <div key={group.id} className="flex items-center justify-between rounded-xl border border-primary bg-panel px-2.5 py-2">
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-secondary">{group.name}</p>
-                                <p className="truncate text-xs text-[#b9a99b]">{group.joinPolicy}</p>
+                                <p className="truncate text-xs text-primary">{group.joinPolicy}</p>
                               </div>
                               <button
                                 className="pv-chip shrink-0 rounded-full px-2.5 py-1 text-xs disabled:opacity-50"
@@ -316,7 +349,7 @@ export function PageShell({ children }: PropsWithChildren) {
                           <p className="pv-muted text-xs">Nenhum grupo encontrado.</p>
                         )}
                         {groupsSearchQuery.isError && (
-                          <p className="rounded-lg border border-[#6b3f35] bg-[#261714] px-2 py-1 text-xs text-[#ffb7a3]">Não foi possível buscar grupos agora.</p>
+                          <p className="rounded-lg border border-primary bg-panel px-2 py-1 text-xs text-primary">Não foi possível buscar grupos agora.</p>
                         )}
                       </div>
                     </div>

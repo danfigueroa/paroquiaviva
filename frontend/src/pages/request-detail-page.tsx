@@ -151,18 +151,18 @@ export function RequestDetailPage() {
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Pedido de oração</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Pedido de oração</p>
             <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Detalhe da intenção</h1>
           </div>
-          <Link className="text-sm text-[#f2c5b6] hover:text-[#ffd8cc]" to="/feed">Voltar ao mural</Link>
+          <Link className="text-sm text-primary hover:text-primary" to="/feed">Voltar ao mural</Link>
         </div>
 
         {requestQuery.isLoading && <p className="pv-muted mt-6 text-sm">Carregando pedido...</p>}
-        {requestQuery.isError && <p className="mt-6 rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">Não foi possível carregar o pedido.</p>}
+        {requestQuery.isError && <p className="mt-6 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">Não foi possível carregar o pedido.</p>}
 
         {requestQuery.data && (
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            <article className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-5">
+            <article className="rounded-2xl border border-primary bg-panel p-5">
               <p className="break-words text-lg font-semibold text-secondary">{requestQuery.data.title}</p>
               <p className="pv-muted mt-2 text-sm leading-relaxed">{requestQuery.data.body}</p>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -182,12 +182,12 @@ export function RequestDetailPage() {
             </article>
 
             {canEdit ? (
-              <form className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-5" onSubmit={onSubmit}>
+              <form className="rounded-2xl border border-primary bg-panel p-5" onSubmit={onSubmit}>
                 <p className="text-sm font-semibold text-secondary">Editar pedido</p>
                 <div className="mt-3 space-y-3">
                   <Input onChange={(e) => setTitle(e.target.value)} value={title} />
                   <TextArea className="min-h-[160px]" onChange={(e) => setBody(e.target.value)} value={body} />
-                  <select className="h-11 w-full rounded-xl border border-[#344434] bg-[#101612] px-3 text-sm text-secondary" onChange={(e) => setCategory(e.target.value)} value={category}>
+                  <select className="h-11 w-full rounded-xl border border-primary bg-panel px-3 text-sm text-secondary" onChange={(e) => setCategory(e.target.value)} value={category}>
                     <option value="HEALTH">Saúde</option>
                     <option value="FAMILY">Família</option>
                     <option value="WORK">Trabalho</option>
@@ -195,14 +195,14 @@ export function RequestDetailPage() {
                     <option value="THANKSGIVING">Ação de graças</option>
                     <option value="OTHER">Outro</option>
                   </select>
-                  <select className="h-11 w-full rounded-xl border border-[#344434] bg-[#101612] px-3 text-sm text-secondary" onChange={(e) => setVisibility(e.target.value as 'PUBLIC' | 'GROUP_ONLY' | 'PRIVATE')} value={visibility}>
+                  <select className="h-11 w-full rounded-xl border border-primary bg-panel px-3 text-sm text-secondary" onChange={(e) => setVisibility(e.target.value as 'PUBLIC' | 'GROUP_ONLY' | 'PRIVATE')} value={visibility}>
                     <option value="PUBLIC">Público</option>
                     <option value="GROUP_ONLY">Somente grupo</option>
                     <option value="PRIVATE">Privado</option>
                   </select>
                   {visibility === 'GROUP_ONLY' && (
-                    <div className="rounded-2xl border border-[#2d3a2f] bg-[#111714] p-3">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#9db19a]">Grupos vinculados</p>
+                    <div className="rounded-2xl border border-primary bg-panel p-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">Grupos vinculados</p>
                       <div className="space-y-2">
                         {(groupsQuery.data ?? []).map((group) => (
                           <label key={group.id} className="flex cursor-pointer items-center gap-2 text-sm text-secondary">
@@ -230,15 +230,15 @@ export function RequestDetailPage() {
                 </div>
               </form>
             ) : (
-              <div className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-5">
+              <div className="rounded-2xl border border-primary bg-panel p-5">
                 <p className="pv-muted text-sm">Somente o autor pode editar ou excluir este pedido.</p>
               </div>
             )}
           </div>
         )}
 
-        {status && <p className="mt-5 rounded-xl border border-[#365739] bg-[#17231a] px-3 py-2 text-sm text-[#b9dba8]">{status}</p>}
-        {error && <p className="mt-5 rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
+        {status && <p className="mt-5 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{status}</p>}
+        {error && <p className="mt-5 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{error}</p>}
       </section>
     </PageShell>
   )

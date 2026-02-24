@@ -178,38 +178,38 @@ export function AuthPage() {
     <div className="mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:items-stretch">
       <section className="pv-panel flex h-full flex-col justify-between rounded-3xl p-8 sm:p-10">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#a9b99f]">Paróquia Viva</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Paróquia Viva</p>
           <h1 className="pv-title mt-5 text-3xl font-bold leading-[1.08] text-secondary sm:text-4xl lg:text-[46px]">Conecte sua comunidade em uma rede de oração viva.</h1>
           <p className="pv-muted mt-5 max-w-md text-base leading-relaxed">Compartilhe intenções, acompanhe pedidos de amigos e grupos, e fortaleça os laços da sua paróquia em um ambiente acolhedor.</p>
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-[#2b3f2a] bg-[#162316] px-4 py-4">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[#97ad8d]">Fluxo</p>
+          <div className="rounded-2xl border border-primary bg-panel px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-primary">Fluxo</p>
             <p className="mt-2 text-sm font-semibold text-secondary">Rápido</p>
           </div>
-          <div className="rounded-2xl border border-[#5b4a3b] bg-[#2a1e1a] px-4 py-4">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[#d9b7aa]">Acesso</p>
-            <p className="mt-2 text-sm font-semibold text-[#f3d4c8]">Seguro</p>
+          <div className="rounded-2xl border border-primary bg-panel px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-primary">Acesso</p>
+            <p className="mt-2 text-sm font-semibold text-primary">Seguro</p>
           </div>
-          <div className="rounded-2xl border border-[#314033] bg-[#1a201c] px-4 py-4">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[#9eb09a]">Leitura</p>
+          <div className="rounded-2xl border border-primary bg-panel px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-primary">Leitura</p>
             <p className="mt-2 text-sm font-semibold text-secondary">Confortável</p>
           </div>
         </div>
       </section>
 
       <section className="pv-panel flex h-full flex-col rounded-3xl p-8 sm:p-10">
-        <div className="inline-flex w-fit rounded-full border border-[#334436] bg-[#121915] p-1">
+        <div className="inline-flex w-fit rounded-full border border-primary bg-panel p-1">
           <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'signin' ? 'bg-secondary text-[#20241f]' : 'text-[#d4c8b7]'}`}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'signin' ? 'bg-primary text-onPrimary' : 'text-primary'}`}
             onClick={() => setMode('signin')}
             type="button"
           >
             Entrar
           </button>
           <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'signup' ? 'bg-secondary text-[#20241f]' : 'text-[#d4c8b7]'}`}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === 'signup' ? 'bg-primary text-onPrimary' : 'text-primary'}`}
             onClick={() => setMode('signup')}
             type="button"
           >
@@ -235,8 +235,8 @@ export function AuthPage() {
           </div>
         </form>
 
-        {error && <p className="mt-4 rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
-        {info && <p className="mt-4 rounded-xl border border-[#365739] bg-[#17231a] px-3 py-2 text-sm text-[#b9dba8]">{info}</p>}
+        {error && <p className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{error}</p>}
+        {info && <p className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{info}</p>}
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-8 text-sm">
           <button className="pv-muted hover:text-secondary" onClick={onResetPassword} type="button">Redefinir senha</button>

@@ -65,14 +65,14 @@ export function NewRequestPage() {
   return (
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Novo conteúdo</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Novo conteúdo</p>
         <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Criar pedido de oração</h1>
         <p className="pv-muted mt-2 text-sm">Escreva com carinho e clareza para que sua comunidade possa orar junto com você.</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4 lg:grid-cols-2">
           <div className="space-y-4 lg:col-span-1">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título do pedido" />
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-11 w-full rounded-xl border border-[#344434] bg-[#101612] px-3 text-sm text-secondary">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-11 w-full rounded-xl border border-primary bg-panel px-3 text-sm text-secondary">
               <option value="HEALTH">Saúde</option>
               <option value="FAMILY">Família</option>
               <option value="WORK">Trabalho</option>
@@ -80,14 +80,14 @@ export function NewRequestPage() {
               <option value="THANKSGIVING">Ação de graças</option>
               <option value="OTHER">Outro</option>
             </select>
-            <select value={visibility} onChange={(e) => setVisibility(e.target.value)} className="h-11 w-full rounded-xl border border-[#344434] bg-[#101612] px-3 text-sm text-secondary">
+            <select value={visibility} onChange={(e) => setVisibility(e.target.value)} className="h-11 w-full rounded-xl border border-primary bg-panel px-3 text-sm text-secondary">
               <option value="GROUP_ONLY">Somente grupo</option>
               <option value="PRIVATE">Privado</option>
               <option value="PUBLIC">Público</option>
             </select>
             {visibility === 'GROUP_ONLY' && (
-              <div className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#98ab90]">Grupos</p>
+              <div className="rounded-2xl border border-primary bg-panel p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">Grupos</p>
                 <div className="space-y-2">
                   {groups.isLoading && <p className="pv-muted text-xs">Carregando seus grupos...</p>}
                   {(groups.data ?? []).map((group) => (
@@ -121,7 +121,7 @@ export function NewRequestPage() {
                 {createMutation.isPending ? 'Salvando...' : 'Publicar pedido'}
               </Button>
             </div>
-            {error && <p className="rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
+            {error && <p className="rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{error}</p>}
             {!error && visibility === 'PUBLIC' && <p className="pv-muted text-xs">Pedidos públicos entram em moderação antes de aparecer no feed público.</p>}
           </div>
         </form>

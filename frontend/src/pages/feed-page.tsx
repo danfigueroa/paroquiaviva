@@ -180,7 +180,7 @@ export function FeedPage() {
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Feed social</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Feed social</p>
             <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Intenções e pedidos de oração</h1>
             <p className="pv-muted mt-2 text-sm">O feed principal mistura amigos e grupos. Público é uma aba secundária para descoberta.</p>
           </div>
@@ -193,7 +193,7 @@ export function FeedPage() {
           {tabs.map((tab) => (
             <button
               key={tab.scope}
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${tab.scope === scope ? 'pv-chip-active' : 'pv-chip text-[#d4c8b7]'}`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold ${tab.scope === scope ? 'pv-chip-active' : 'pv-chip text-primary'}`}
               onClick={() => changeScope(tab.scope)}
               type="button"
             >
@@ -205,7 +205,7 @@ export function FeedPage() {
 
       <section className="mt-5 w-full space-y-3">
         {query.isLoading && <div className="pv-panel rounded-2xl p-4 text-sm pv-muted">Carregando intenções...</div>}
-        {query.isFetching && !query.isLoading && <div className="text-xs text-[#9fb3a7]">Atualizando feed...</div>}
+        {query.isFetching && !query.isLoading && <div className="text-xs text-primary">Atualizando feed...</div>}
 
         {isUnauthorized && activeTab.requiresAuth && (
           <div className="pv-panel rounded-2xl p-4 text-sm">
@@ -222,28 +222,28 @@ export function FeedPage() {
             <article key={item.id} className={`pv-panel rounded-2xl p-5 ${lastPrayerHit?.requestID === item.id ? 'pv-card-hit' : ''}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-4">
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#3f2a24] text-lg font-bold text-[#f4d6cb]">
+                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-panel text-lg font-bold text-primary">
                     {(item.authorDisplayName?.[0] || item.authorUsername?.[0] || 'U').toUpperCase()}
                   </span>
                   <div className="min-w-0">
-                    <Link className="block break-words text-3xl font-semibold leading-tight text-secondary hover:text-[#f0c7b8] sm:text-[34px]" to={`/requests/${item.id}`}>{item.title}</Link>
+                    <Link className="block break-words text-3xl font-semibold leading-tight text-secondary hover:text-primary sm:text-[34px]" to={`/requests/${item.id}`}>{item.title}</Link>
                     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <p className="truncate text-sm font-semibold text-secondary">{item.authorDisplayName || 'Membro'}</p>
-                      <p className="truncate text-xs text-[#c4ad9d]">@{item.authorUsername || 'usuario'}</p>
-                      <span className="text-xs text-[#9fb3a7]">•</span>
-                      <p className="truncate text-xs text-[#9fb3a7]">{formatPostDate(item.createdAt)}</p>
+                      <p className="truncate text-xs text-primary">@{item.authorUsername || 'usuario'}</p>
+                      <span className="text-xs text-primary">•</span>
+                      <p className="truncate text-xs text-primary">{formatPostDate(item.createdAt)}</p>
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 self-start sm:shrink-0 sm:self-auto sm:justify-end">
-                  <span className="rounded-xl border border-[#9f5e49] bg-gradient-to-r from-[#6b3d31] to-[#9f5e49] px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-[#ffe4db]">
+                  <span className="rounded-xl border border-primary bg-primary px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-onPrimary">
                     {categoryLabel[item.category] || item.category}
                   </span>
-                  <span className="rounded-xl border border-[#2d4f3a] bg-[#183122] px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-[#b8dbbf]">
+                  <span className="rounded-xl border border-primary bg-panel px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-primary">
                     {visibilityLabel[item.visibility]}
                   </span>
                   {item.groupNames?.map((groupName) => (
-                    <span key={`${item.id}-${groupName}`} className="inline-flex items-center gap-1 rounded-xl border border-[#1f5a3c] bg-[#103422] px-2.5 py-1 text-[11px] font-semibold tracking-[0.02em] text-[#c8f1d5]">
+                    <span key={`${item.id}-${groupName}`} className="inline-flex items-center gap-1 rounded-xl border border-primary bg-panel px-2.5 py-1 text-[11px] font-semibold tracking-[0.02em] text-primary">
                       <span aria-hidden>👥</span>
                       <span>{groupName}</span>
                     </span>
@@ -255,10 +255,10 @@ export function FeedPage() {
                 <p className="pv-muted mt-2 text-base leading-relaxed">{item.body}</p>
               </div>
 
-              <div className="mt-5 flex items-center justify-between border-t border-[#25352c] pt-4">
-                <p className={`text-xs text-[#98ab90] ${lastPrayerHit?.requestID === item.id ? 'pv-count-hit' : ''}`}>Orações registradas: {item.prayedCount}</p>
+              <div className="mt-5 flex items-center justify-between border-t border-primary pt-4">
+                <p className={`text-xs text-primary ${lastPrayerHit?.requestID === item.id ? 'pv-count-hit' : ''}`}>Orações registradas: {item.prayedCount}</p>
                 {profileQuery.data?.id === item.authorId && (
-                  <Link className="text-xs text-[#f2c5b6] hover:text-[#ffd8cc]" to={`/requests/${item.id}`}>Editar pedido</Link>
+                  <Link className="text-xs text-primary hover:text-primary" to={`/requests/${item.id}`}>Editar pedido</Link>
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -289,8 +289,8 @@ export function FeedPage() {
         </div>
 
         {!isUnauthorized && !query.isLoading && items.length > 0 && (
-          <div className="mt-2 flex flex-col gap-3 rounded-2xl border border-[#254036] bg-[#0f1b16]/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-[#9fb3a7]">Página {page} de {totalPages}</p>
+          <div className="mt-2 flex flex-col gap-3 rounded-2xl border border-primary bg-panel/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-primary">Página {page} de {totalPages}</p>
             <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex min-w-max items-center gap-2">
               <button

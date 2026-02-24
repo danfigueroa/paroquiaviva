@@ -3,16 +3,85 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0d100f;
-  --bg-soft: #131816;
-  --panel: #151a18;
-  --panel-border: #243128;
-  --primary: #2d4f1e;
-  --secondary: #f5e6cc;
-  --accent: #e27d60;
-  --slate: #4a4a4a;
-  --text: #f5e6cc;
-  --text-muted: #c2b6a3;
+  --bg: #E6D0AD;
+  --bg-soft: #F2E4CE;
+  --panel: #F7EBD8;
+  --panel-border: #5D98A3;
+  --primary: #00778A;
+  --primary-strong: #005A67;
+  --secondary: #0B3F49;
+  --accent: #D67A5C;
+  --slate: #6D8E94;
+  --text: #103B44;
+  --text-muted: #456C74;
+  --on-primary: #FDF6EA;
+  --bg-rgb: 230 208 173;
+  --bg-soft-rgb: 242 228 206;
+  --panel-rgb: 247 235 216;
+  --primary-rgb: 0 119 138;
+  --primary-strong-rgb: 0 90 103;
+  --secondary-rgb: 11 63 73;
+  --accent-rgb: 214 122 92;
+  --slate-rgb: 109 142 148;
+  --muted-rgb: 69 108 116;
+  --on-primary-rgb: 253 246 234;
+  --ink-rgb: 16 59 68;
+  --shadow-rgb: 10, 79, 92;
+  --panel-surface: var(--panel);
+  --chip-border: rgba(0, 119, 138, 0.45);
+  --chip-bg: rgba(255, 255, 255, 0.28);
+  --chip-text: var(--secondary);
+  --chip-hover-bg: rgba(0, 119, 138, 0.16);
+  --chip-active-bg: var(--primary);
+  --chip-active-border: var(--primary-strong);
+  --chip-active-text: var(--on-primary);
+  --fx-ring: rgba(0, 119, 138, 0.55);
+  --fx-rgb: 0, 119, 138;
+  --count-muted: #456C74;
+  --count-hit: #00778A;
+  --bg-radial-a: rgba(0, 119, 138, 0.1);
+  --bg-radial-b: rgba(214, 122, 92, 0.11);
+}
+
+:root[data-theme='dark'] {
+  --bg: #0D100F;
+  --bg-soft: #0F1412;
+  --panel: #151A18;
+  --panel-border: #6B3F35;
+  --primary: #E27D60;
+  --primary-strong: #C8684D;
+  --secondary: #F5E6CC;
+  --accent: #E27D60;
+  --slate: #4A4A4A;
+  --text: #F5E6CC;
+  --text-muted: #C2B6A3;
+  --on-primary: #F5E6CC;
+  --bg-rgb: 13 16 15;
+  --bg-soft-rgb: 15 20 18;
+  --panel-rgb: 21 26 24;
+  --primary-rgb: 226 125 96;
+  --primary-strong-rgb: 200 104 77;
+  --secondary-rgb: 245 230 204;
+  --accent-rgb: 226 125 96;
+  --slate-rgb: 74 74 74;
+  --muted-rgb: 194 182 163;
+  --on-primary-rgb: 245 230 204;
+  --ink-rgb: 247 242 232;
+  --shadow-rgb: 0, 0, 0;
+  --panel-surface: linear-gradient(180deg, rgba(21, 26, 24, 0.95), rgba(18, 23, 21, 0.95));
+  --chip-border: rgba(226, 125, 96, 0.65);
+  --chip-bg: rgba(226, 125, 96, 0.08);
+  --chip-text: #F3D8CF;
+  --chip-hover-bg: rgba(226, 125, 96, 0.14);
+  --chip-active-bg: var(--accent);
+  --chip-active-border: var(--accent);
+  --chip-active-text: #1F1410;
+  --fx-ring: rgba(226, 125, 96, 0.55);
+  --fx-rgb: 226, 125, 96;
+  --count-muted: #98AB90;
+  --count-hit: #FFD8CC;
+  --bg-radial-a: rgba(226, 125, 96, 0.22);
+  --bg-radial-b: rgba(226, 125, 96, 0.2);
 }
 
 * {
@@ -30,9 +99,9 @@ body {
   overflow-x: hidden;
   color: var(--text);
   background:
-    radial-gradient(1000px 500px at 10% -5%, rgba(45, 79, 30, 0.36), transparent 60%),
-    radial-gradient(900px 450px at 100% 0%, rgba(226, 125, 96, 0.2), transparent 55%),
-    linear-gradient(180deg, #0d100f 0%, #0f1412 100%);
+    radial-gradient(1200px 520px at 0% -10%, var(--bg-radial-a), transparent 60%),
+    radial-gradient(900px 440px at 100% 0%, var(--bg-radial-b), transparent 58%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
   font-family: "Plus Jakarta Sans", "Manrope", "Avenir Next", "Segoe UI", sans-serif;
 }
 
@@ -41,9 +110,9 @@ a {
 }
 
 .pv-panel {
-  background: linear-gradient(180deg, rgba(21, 26, 24, 0.95), rgba(18, 23, 21, 0.95));
+  background: var(--panel-surface);
   border: 1px solid var(--panel-border);
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 14px 34px rgba(var(--shadow-rgb), 0.2);
 }
 
 .pv-title {
@@ -55,54 +124,53 @@ a {
 }
 
 .pv-chip {
-  border: 1px solid rgba(226, 125, 96, 0.65);
-  background: rgba(226, 125, 96, 0.08);
-  color: #f3d8cf;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
   font-weight: 600;
   transition: all 180ms ease;
 }
 
 .pv-chip:hover {
   transform: translateY(-1px);
-  background: rgba(226, 125, 96, 0.14);
-  filter: brightness(1.04);
+  background: var(--chip-hover-bg);
 }
 
 .pv-chip-active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #1f1410;
+  border-color: var(--chip-active-border);
+  background: var(--chip-active-bg);
+  color: var(--chip-active-text);
   font-weight: 700;
-  box-shadow: 0 8px 20px -12px rgba(226, 125, 96, 0.9);
+  box-shadow: 0 10px 22px -12px var(--fx-ring);
 }
 
 @keyframes prayerPop {
   0% {
     transform: translateY(0) scale(1);
-    box-shadow: 0 0 0 rgba(226, 125, 96, 0);
+    box-shadow: 0 0 0 rgba(var(--fx-rgb), 0);
   }
   40% {
     transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 0 0 8px rgba(226, 125, 96, 0.18);
+    box-shadow: 0 0 0 8px rgba(var(--fx-rgb), 0.18);
   }
   100% {
     transform: translateY(0) scale(1);
-    box-shadow: 0 0 0 rgba(226, 125, 96, 0);
+    box-shadow: 0 0 0 rgba(var(--fx-rgb), 0);
   }
 }
 
 @keyframes cardPulse {
   0% {
     border-color: var(--panel-border);
-    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 12px 28px rgba(var(--fx-rgb), 0.15);
   }
   45% {
-    border-color: rgba(226, 125, 96, 0.75);
-    box-shadow: 0 20px 42px rgba(226, 125, 96, 0.22);
+    border-color: rgba(var(--fx-rgb), 0.75);
+    box-shadow: 0 12px 28px rgba(var(--fx-rgb), 0.3);
   }
   100% {
     border-color: var(--panel-border);
-    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 12px 28px rgba(var(--fx-rgb), 0.15);
   }
 }
 
@@ -116,15 +184,15 @@ a {
 
 @keyframes prayerCountPulse {
   0% {
-    color: #98ab90;
+    color: var(--count-muted);
     transform: translateY(0);
   }
   35% {
-    color: #ffd8cc;
+    color: var(--count-hit);
     transform: translateY(-1px);
   }
   100% {
-    color: #98ab90;
+    color: var(--count-muted);
     transform: translateY(0);
   }
 }
@@ -192,7 +260,7 @@ a {
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  border: 1.5px solid rgba(226, 125, 96, 0.55);
+  border: 1.5px solid var(--fx-ring);
   animation: prayerFxRing 650ms ease forwards;
 }
 
@@ -203,7 +271,7 @@ a {
   width: 5px;
   height: 5px;
   border-radius: 999px;
-  background: #ffc7b7;
+  background: var(--primary);
   animation: prayerFxSpark 640ms ease forwards;
 }
 
