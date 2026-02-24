@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import { PageShell } from '@/components/page-shell'
 import { api } from '@/lib/api'
@@ -22,6 +22,7 @@ const tabs: Array<{ scope: FeedScope; label: string; endpoint: string; requiresA
 ]
 
 export function FeedPage() {
+  const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const rawScope = searchParams.get('scope') as FeedScope | null
   const scope: FeedScope = rawScope && tabs.some((tab) => tab.scope === rawScope) ? rawScope : 'home'
@@ -32,6 +33,14 @@ export function FeedPage() {
     queryFn: async () => {
       const res = await api.get<{ items: FeedItem[] }>(activeTab.endpoint)
       return res.data.items
+    }
+  })
+  const prayMutation = useMutation({
+    mutationFn: async (requestID: string) => {
+      await api.post(`/requests/${requestID}/pray`)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['feed'] })
     }
   })
 
@@ -86,10 +95,12 @@ export function FeedPage() {
                 <h2 className="text-lg font-semibold text-secondary">{item.title}</h2>
                 <span className="rounded-full border border-[#715647] bg-[#2b201b] px-3 py-1 text-xs font-semibold text-[#f0c7b8]">{item.category}</span>
               </div>
-              <p className="pv-muted mt-3 text-sm leading-relaxed">{item.body}</p>
+                <p className="pv-muted mt-3 text-sm leading-relaxed">{item.body}</p>
               <div className="mt-auto flex items-center justify-between pt-5">
                 <p className="text-xs text-[#98ab90]">Orações registradas: {item.prayedCount}</p>
-                <Button>Eu orei</Button>
+                <Button disabled={prayMutation.isPending} onClick={() => prayMutation.mutate(item.id)}>
+                  Eu orei
+                </Button>
               </div>
             </article>
           ))}

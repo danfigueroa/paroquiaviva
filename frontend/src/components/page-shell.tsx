@@ -25,6 +25,7 @@ export function PageShell({ children }: PropsWithChildren) {
           </Link>
           <nav className="flex flex-wrap gap-2 text-sm">
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/feed">Mural</Link>
+            <Link className="pv-chip rounded-full px-3 py-1.5" to="/friends">Amigos</Link>
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/requests/new">Novo Pedido</Link>
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/groups">Grupos</Link>
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/profile">Perfil</Link>
