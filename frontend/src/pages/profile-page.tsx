@@ -8,13 +8,17 @@ import { Button } from '@/components/button'
 type Profile = {
   id: string
   email: string
+  username: string
   displayName: string
   avatarUrl?: string
 }
 
 export function ProfilePage() {
   const [displayName, setDisplayName] = useState('')
+  const [username, setUsername] = useState('')
   const [avatarUrl, setAvatarURL] = useState('')
+  const [status, setStatus] = useState('')
+  const [error, setError] = useState('')
 
   const profile = useQuery({
     queryKey: ['profile'],
@@ -29,6 +33,7 @@ export function ProfilePage() {
       return
     }
     setDisplayName(profile.data.displayName || '')
+    setUsername(profile.data.username || '')
     setAvatarURL(profile.data.avatarUrl || '')
   }, [profile.data])
 
@@ -36,16 +41,33 @@ export function ProfilePage() {
     mutationFn: async () => {
       await api.patch('/profile', {
         displayName,
+        username,
         avatarUrl: avatarUrl || null
       })
     },
     onSuccess: async () => {
+      setError('')
+      setStatus('Perfil atualizado com sucesso.')
       await profile.refetch()
+    },
+    onError: (err: any) => {
+      setStatus('')
+      setError(err?.response?.data?.error?.message || 'Não foi possível salvar o perfil.')
     }
   })
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
+    setError('')
+    setStatus('')
+    if (displayName.trim().length < 2) {
+      setError('Informe um nome de exibição com pelo menos 2 caracteres.')
+      return
+    }
+    if (!/^[a-z0-9_]{3,30}$/.test(username.trim().replace('@', ''))) {
+      setError('Use um @username de 3 a 30 caracteres, apenas letras minúsculas, números e _.')
+      return
+    }
     saveProfile.mutate()
   }
 
@@ -54,19 +76,44 @@ export function ProfilePage() {
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Conta</p>
         <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Meu perfil</h1>
-        <p className="pv-muted mt-2 text-sm">Atualize seus dados visíveis para a comunidade.</p>
+        <p className="pv-muted mt-2 text-sm">Defina seu nome público e o @username único usado para amizades no sistema.</p>
 
         <form className="mt-6 grid gap-4 lg:grid-cols-2" onSubmit={onSubmit}>
           <div className="space-y-3">
-            <Input disabled value={profile.data?.email ?? ''} />
-            <Input onChange={(e) => setDisplayName(e.target.value)} placeholder="Nome de exibição" value={displayName} />
-            <Input onChange={(e) => setAvatarURL(e.target.value)} placeholder="URL do avatar" value={avatarUrl} />
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#9db19a]">
+              E-mail
+              <Input disabled value={profile.data?.email ?? ''} />
+              <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Seu e-mail de login. Não pode ser alterado aqui.</span>
+            </label>
+
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#9db19a]">
+              Nome de exibição
+              <Input onChange={(e) => setDisplayName(e.target.value)} placeholder="Como seu nome aparece no app" value={displayName} />
+              <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Nome mostrado nos pedidos, grupos e amizades.</span>
+            </label>
+
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#9db19a]">
+              @username
+              <Input onChange={(e) => setUsername(e.target.value.replace('@', '').toLowerCase())} placeholder="seu_username" value={username} />
+              <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Identificador único para encontrar e adicionar você.</span>
+            </label>
+
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#9db19a]">
+              URL do avatar
+              <Input onChange={(e) => setAvatarURL(e.target.value)} placeholder="https://..." value={avatarUrl} />
+              <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Opcional. Use um link público de imagem.</span>
+            </label>
           </div>
 
           <div className="rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4">
             <p className="text-sm text-secondary">Prévia do perfil</p>
             <p className="mt-3 text-lg font-semibold text-secondary">{displayName || 'Seu nome'}</p>
+            <p className="pv-muted mt-1 text-sm">@{username || 'username'}</p>
             <p className="pv-muted mt-1 text-sm">{profile.data?.email}</p>
+
+            {status && <p className="mt-4 rounded-xl border border-[#365739] bg-[#17231a] px-3 py-2 text-sm text-[#b9dba8]">{status}</p>}
+            {error && <p className="mt-4 rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
+
             <Button className="mt-5" disabled={saveProfile.isPending} type="submit">
               {saveProfile.isPending ? 'Salvando...' : 'Salvar alterações'}
             </Button>

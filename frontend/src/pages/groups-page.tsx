@@ -26,6 +26,7 @@ export function GroupsPage() {
   const [description, setDescription] = useState('')
   const [joinPolicy, setJoinPolicy] = useState<Group['joinPolicy']>('REQUEST')
   const [selectedGroupId, setSelectedGroupId] = useState<string>('')
+  const [error, setError] = useState('')
 
   const groupsQuery = useQuery({
     queryKey: ['groups', 'mine'],
@@ -47,7 +48,11 @@ export function GroupsPage() {
     onSuccess: async () => {
       setName('')
       setDescription('')
+      setError('')
       await client.invalidateQueries({ queryKey: ['groups', 'mine'] })
+    },
+    onError: (err: any) => {
+      setError(err?.response?.data?.error?.message || 'Não foi possível criar grupo.')
     }
   })
 
@@ -78,6 +83,10 @@ export function GroupsPage() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (name.trim().length < 3) {
+      setError('O nome do grupo deve ter pelo menos 3 caracteres.')
+      return
+    }
     createGroup.mutate()
   }
 
@@ -140,6 +149,8 @@ export function GroupsPage() {
             <Button disabled={createGroup.isPending} type="submit">
               {createGroup.isPending ? 'Criando...' : 'Criar grupo'}
             </Button>
+            {error && <p className="rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">{error}</p>}
+            {groupsQuery.isError && <p className="rounded-xl border border-[#6b3f35] bg-[#261714] px-3 py-2 text-sm text-[#ffb7a3]">Não foi possível carregar seus grupos.</p>}
           </form>
         </section>
       </div>
@@ -160,6 +171,11 @@ export function GroupsPage() {
           ))}
           {!requestsQuery.isLoading && (requestsQuery.data ?? []).length === 0 && (
             <p className="pv-muted rounded-2xl border border-[#2d3a2f] bg-[#121715] p-4 text-sm sm:col-span-2">Nenhuma solicitação pendente para o grupo selecionado.</p>
+          )}
+          {requestsQuery.isError && (
+            <p className="rounded-2xl border border-[#6b3f35] bg-[#261714] p-4 text-sm text-[#ffb7a3] sm:col-span-2">
+              Você precisa ser admin do grupo para ver solicitações pendentes.
+            </p>
           )}
         </div>
       </section>
