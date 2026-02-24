@@ -181,7 +181,7 @@ export function FeedPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#98ab90]">Feed social</p>
-            <h1 className="pv-title mt-2 text-3xl font-bold text-secondary">Intenções e pedidos de oração</h1>
+            <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Intenções e pedidos de oração</h1>
             <p className="pv-muted mt-2 text-sm">O feed principal mistura amigos e grupos. Público é uma aba secundária para descoberta.</p>
           </div>
           <Link to="/requests/new">
@@ -220,13 +220,13 @@ export function FeedPage() {
         <div className="space-y-3">
           {items.map((item) => (
             <article key={item.id} className={`pv-panel rounded-2xl p-5 ${lastPrayerHit?.requestID === item.id ? 'pv-card-hit' : ''}`}>
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-4">
                   <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#3f2a24] text-lg font-bold text-[#f4d6cb]">
                     {(item.authorDisplayName?.[0] || item.authorUsername?.[0] || 'U').toUpperCase()}
                   </span>
                   <div className="min-w-0">
-                    <Link className="block text-[31px] font-semibold leading-tight text-secondary hover:text-[#f0c7b8] sm:text-[34px]" to={`/requests/${item.id}`}>{item.title}</Link>
+                    <Link className="block break-words text-3xl font-semibold leading-tight text-secondary hover:text-[#f0c7b8] sm:text-[34px]" to={`/requests/${item.id}`}>{item.title}</Link>
                     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <p className="truncate text-sm font-semibold text-secondary">{item.authorDisplayName || 'Membro'}</p>
                       <p className="truncate text-xs text-[#c4ad9d]">@{item.authorUsername || 'usuario'}</p>
@@ -235,7 +235,7 @@ export function FeedPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <div className="flex flex-wrap items-center gap-2 self-start sm:shrink-0 sm:self-auto sm:justify-end">
                   <span className="rounded-xl border border-[#9f5e49] bg-gradient-to-r from-[#6b3d31] to-[#9f5e49] px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-[#ffe4db]">
                     {categoryLabel[item.category] || item.category}
                   </span>
@@ -251,7 +251,7 @@ export function FeedPage() {
                 </div>
               </div>
 
-              <div className="pl-[72px]">
+              <div className="sm:pl-[72px]">
                 <p className="pv-muted mt-2 text-base leading-relaxed">{item.body}</p>
               </div>
 
@@ -289,9 +289,10 @@ export function FeedPage() {
         </div>
 
         {!isUnauthorized && !query.isLoading && items.length > 0 && (
-          <div className="mt-2 flex items-center justify-between rounded-2xl border border-[#254036] bg-[#0f1b16]/80 px-4 py-3">
+          <div className="mt-2 flex flex-col gap-3 rounded-2xl border border-[#254036] bg-[#0f1b16]/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-[#9fb3a7]">Página {page} de {totalPages}</p>
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-max items-center gap-2">
               <button
                 className="pv-chip rounded-full px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={page <= 1 || query.isFetching}
@@ -327,6 +328,7 @@ export function FeedPage() {
               >
                 Próxima
               </button>
+            </div>
             </div>
           </div>
         )}

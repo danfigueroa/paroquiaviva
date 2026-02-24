@@ -231,7 +231,7 @@ export function PageShell({ children }: PropsWithChildren) {
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-visible py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <nav className="inline-flex min-w-max flex-nowrap gap-2 text-sm" aria-label="Menu principal">
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/feed">Mural</NavLink>
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/friends">Amigos</NavLink>
@@ -251,7 +251,7 @@ export function PageShell({ children }: PropsWithChildren) {
             />
 
             {searchOpen && (
-              <div className="absolute right-0 z-30 mt-2 w-full rounded-2xl border border-[#334236] bg-[#121915] p-3 shadow-[0_24px_55px_-30px_rgba(0,0,0,0.9)]">
+              <div className="absolute right-0 z-30 mt-2 max-h-[60vh] w-full overflow-y-auto rounded-2xl border border-[#334236] bg-[#121915] p-3 shadow-[0_24px_55px_-30px_rgba(0,0,0,0.9)]">
                 {normalizedSearch.length < 2 && (
                   <p className="pv-muted text-xs">Digite pelo menos 2 caracteres para buscar amigos e grupos.</p>
                 )}
