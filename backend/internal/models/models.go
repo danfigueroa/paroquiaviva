@@ -89,6 +89,7 @@ type PrayerRequest struct {
 	Status            PrayerStatus     `json:"status"`
 	PrayedCount       int64            `json:"prayedCount"`
 	GroupIDs          []string         `json:"groupIds,omitempty"`
+	GroupNames        []string         `json:"groupNames,omitempty"`
 	PrayerTypeCounts  map[string]int64 `json:"prayerTypeCounts,omitempty"`
 	MyPrayerTypes     []string         `json:"myPrayerTypes,omitempty"`
 	CreatedAt         time.Time        `json:"createdAt"`

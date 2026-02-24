@@ -42,24 +42,34 @@ type prayRequest struct {
 	ActionType string `json:"actionType"`
 }
 
+type feedPagination struct {
+	Page       int   `json:"page"`
+	PageSize   int   `json:"pageSize"`
+	Total      int64 `json:"total"`
+	TotalPages int   `json:"totalPages"`
+}
+
 func NewPrayerHandler(service *services.Service, prayedWindowHour int) *PrayerHandler {
 	return &PrayerHandler{service: service, prayedWindowHour: prayedWindowHour}
 }
 
 func (h *PrayerHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, offset, page := parseFeedPagination(r)
 	items, err := h.service.ListPublicPrayerRequests(r.Context(), limit, offset)
 	if err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
 		return
 	}
-	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+	total, err := h.service.CountPublicPrayerRequests(r.Context())
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	writeFeedResponse(w, items, page, limit, total)
 }
 
 func (h *PrayerHandler) ListHome(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, offset, page := parseFeedPagination(r)
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
 	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
 	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
@@ -71,12 +81,16 @@ func (h *PrayerHandler) ListHome(w http.ResponseWriter, r *http.Request) {
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
 		return
 	}
-	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+	total, err := h.service.CountHomePrayerRequests(r.Context(), userID)
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	writeFeedResponse(w, items, page, limit, total)
 }
 
 func (h *PrayerHandler) ListGroupsFeed(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, offset, page := parseFeedPagination(r)
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
 	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
 	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
@@ -88,12 +102,16 @@ func (h *PrayerHandler) ListGroupsFeed(w http.ResponseWriter, r *http.Request) {
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
 		return
 	}
-	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+	total, err := h.service.CountGroupsPrayerRequests(r.Context(), userID)
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	writeFeedResponse(w, items, page, limit, total)
 }
 
 func (h *PrayerHandler) ListFriendsFeed(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, offset, page := parseFeedPagination(r)
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
 	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
 	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
@@ -105,7 +123,41 @@ func (h *PrayerHandler) ListFriendsFeed(w http.ResponseWriter, r *http.Request) 
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
 		return
 	}
-	shared.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+	total, err := h.service.CountFriendsPrayerRequests(r.Context(), userID)
+	if err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	writeFeedResponse(w, items, page, limit, total)
+}
+
+func parseFeedPagination(r *http.Request) (int, int, int) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	page := (offset / limit) + 1
+	return limit, offset, page
+}
+
+func writeFeedResponse(w http.ResponseWriter, items []models.PrayerRequest, page, pageSize int, total int64) {
+	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	shared.WriteJSON(w, http.StatusOK, map[string]any{
+		"items": items,
+		"pagination": feedPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	})
 }
 
 func (h *PrayerHandler) Create(w http.ResponseWriter, r *http.Request) {

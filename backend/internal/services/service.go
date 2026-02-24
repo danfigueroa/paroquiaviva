@@ -123,6 +123,10 @@ func (s *Service) ListPublicPrayerRequests(ctx context.Context, limit, offset in
 	return s.repo.ListPublicPrayerRequests(ctx, limit, offset)
 }
 
+func (s *Service) CountPublicPrayerRequests(ctx context.Context) (int64, error) {
+	return s.repo.CountPublicPrayerRequests(ctx)
+}
+
 func (s *Service) RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error {
 	if windowHours < 1 {
 		windowHours = 12
@@ -143,6 +147,10 @@ func (s *Service) ListHomePrayerRequests(ctx context.Context, userID string, lim
 	return s.repo.ListHomePrayerRequests(ctx, userID, limit, offset)
 }
 
+func (s *Service) CountHomePrayerRequests(ctx context.Context, userID string) (int64, error) {
+	return s.repo.CountHomePrayerRequests(ctx, userID)
+}
+
 func (s *Service) ListGroupsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
@@ -153,6 +161,10 @@ func (s *Service) ListGroupsPrayerRequests(ctx context.Context, userID string, l
 	return s.repo.ListGroupsPrayerRequests(ctx, userID, limit, offset)
 }
 
+func (s *Service) CountGroupsPrayerRequests(ctx context.Context, userID string) (int64, error) {
+	return s.repo.CountGroupsPrayerRequests(ctx, userID)
+}
+
 func (s *Service) ListFriendsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
@@ -161,6 +173,10 @@ func (s *Service) ListFriendsPrayerRequests(ctx context.Context, userID string, 
 		offset = 0
 	}
 	return s.repo.ListFriendsPrayerRequests(ctx, userID, limit, offset)
+}
+
+func (s *Service) CountFriendsPrayerRequests(ctx context.Context, userID string) (int64, error) {
+	return s.repo.CountFriendsPrayerRequests(ctx, userID)
 }
 
 func (s *Service) ListUserGroups(ctx context.Context, userID string) ([]models.Group, error) {

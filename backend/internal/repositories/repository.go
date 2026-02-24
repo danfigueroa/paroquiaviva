@@ -34,9 +34,13 @@ type Repository interface {
 	DeletePrayerRequest(ctx context.Context, userID, requestID string) error
 	GetPrayerRequestByID(ctx context.Context, userID, requestID string) (models.PrayerRequest, error)
 	ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error)
+	CountPublicPrayerRequests(ctx context.Context) (int64, error)
 	ListGroupsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
+	CountGroupsPrayerRequests(ctx context.Context, userID string) (int64, error)
 	ListFriendsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
+	CountFriendsPrayerRequests(ctx context.Context, userID string) (int64, error)
 	ListHomePrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
+	CountHomePrayerRequests(ctx context.Context, userID string) (int64, error)
 	RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error
 	ListUserGroups(ctx context.Context, userID string) ([]models.Group, error)
 	CreateGroup(ctx context.Context, userID, name, description string, imageURL *string, joinPolicy models.GroupJoinPolicy) (models.Group, error)
@@ -310,6 +314,16 @@ func (r *PostgresRepository) ListPublicPrayerRequests(ctx context.Context, limit
 	return items, nil
 }
 
+func (r *PostgresRepository) CountPublicPrayerRequests(ctx context.Context) (int64, error) {
+	var total int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)::bigint
+		FROM prayer_requests
+		WHERE visibility = 'PUBLIC' AND status = 'ACTIVE' AND deleted_at IS NULL
+	`).Scan(&total)
+	return total, err
+}
+
 func (r *PostgresRepository) RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error {
 	ct, err := r.db.Exec(ctx, `
 		INSERT INTO prayer_actions (user_id, prayer_request_id, action_type)
@@ -365,6 +379,24 @@ func (r *PostgresRepository) ListGroupsPrayerRequests(ctx context.Context, userI
 	return items, nil
 }
 
+func (r *PostgresRepository) CountGroupsPrayerRequests(ctx context.Context, userID string) (int64, error) {
+	var total int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)::bigint
+		FROM (
+			SELECT DISTINCT pr.id
+			FROM prayer_requests pr
+			INNER JOIN prayer_request_groups prg ON prg.prayer_request_id = pr.id
+			INNER JOIN group_memberships gm ON gm.group_id = prg.group_id
+			WHERE gm.user_id = $1
+			  AND gm.deleted_at IS NULL
+			  AND pr.status = 'ACTIVE'
+			  AND pr.deleted_at IS NULL
+		) AS group_requests
+	`, userID).Scan(&total)
+	return total, err
+}
+
 func (r *PostgresRepository) ListFriendsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
 	rows, err := r.db.Query(ctx, `
 		WITH friend_ids AS (
@@ -393,6 +425,24 @@ func (r *PostgresRepository) ListFriendsPrayerRequests(ctx context.Context, user
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *PostgresRepository) CountFriendsPrayerRequests(ctx context.Context, userID string) (int64, error) {
+	var total int64
+	err := r.db.QueryRow(ctx, `
+		WITH friend_ids AS (
+			SELECT CASE WHEN user_id = $1 THEN friend_user_id ELSE user_id END AS friend_id
+			FROM friendships
+			WHERE status = 'ACCEPTED' AND (user_id = $1 OR friend_user_id = $1)
+		)
+		SELECT COUNT(*)::bigint
+		FROM prayer_requests pr
+		INNER JOIN friend_ids f ON f.friend_id = pr.author_id
+		WHERE pr.visibility = 'PUBLIC'
+		  AND pr.status = 'ACTIVE'
+		  AND pr.deleted_at IS NULL
+	`, userID).Scan(&total)
+	return total, err
 }
 
 func (r *PostgresRepository) ListHomePrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
@@ -437,6 +487,38 @@ func (r *PostgresRepository) ListHomePrayerRequests(ctx context.Context, userID 
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *PostgresRepository) CountHomePrayerRequests(ctx context.Context, userID string) (int64, error) {
+	var total int64
+	err := r.db.QueryRow(ctx, `
+		WITH friend_ids AS (
+			SELECT CASE WHEN user_id = $1 THEN friend_user_id ELSE user_id END AS friend_id
+			FROM friendships
+			WHERE status = 'ACCEPTED' AND (user_id = $1 OR friend_user_id = $1)
+		),
+		home_requests AS (
+			SELECT pr.id
+			FROM prayer_requests pr
+			WHERE pr.author_id = $1
+			  AND pr.status IN ('ACTIVE', 'PENDING_REVIEW')
+			  AND pr.deleted_at IS NULL
+			UNION
+			SELECT pr.id
+			FROM prayer_requests pr
+			INNER JOIN friend_ids f ON f.friend_id = pr.author_id
+			WHERE pr.visibility = 'PUBLIC' AND pr.status = 'ACTIVE' AND pr.deleted_at IS NULL
+			UNION
+			SELECT pr.id
+			FROM prayer_requests pr
+			INNER JOIN prayer_request_groups prg ON prg.prayer_request_id = pr.id
+			INNER JOIN group_memberships gm ON gm.group_id = prg.group_id
+			WHERE gm.user_id = $1 AND gm.deleted_at IS NULL AND pr.status = 'ACTIVE' AND pr.deleted_at IS NULL
+		)
+		SELECT COUNT(*)::bigint
+		FROM home_requests
+	`, userID).Scan(&total)
+	return total, err
 }
 
 func (r *PostgresRepository) ListUserGroups(ctx context.Context, userID string) ([]models.Group, error) {
@@ -686,9 +768,11 @@ func (r *PostgresRepository) enrichPrayerRequests(ctx context.Context, userID st
 	}
 
 	groupRows, err := r.db.Query(ctx, `
-		SELECT prayer_request_id::text, group_id::text
-		FROM prayer_request_groups
-		WHERE prayer_request_id = ANY($1::uuid[])
+		SELECT prg.prayer_request_id::text, prg.group_id::text, g.name
+		FROM prayer_request_groups prg
+		INNER JOIN groups g ON g.id = prg.group_id
+		WHERE prg.prayer_request_id = ANY($1::uuid[])
+		  AND g.deleted_at IS NULL
 	`, ids)
 	if err != nil {
 		return err
@@ -696,8 +780,8 @@ func (r *PostgresRepository) enrichPrayerRequests(ctx context.Context, userID st
 	defer groupRows.Close()
 
 	for groupRows.Next() {
-		var requestID, groupID string
-		if err = groupRows.Scan(&requestID, &groupID); err != nil {
+		var requestID, groupID, groupName string
+		if err = groupRows.Scan(&requestID, &groupID, &groupName); err != nil {
 			return err
 		}
 		idx, ok := indexByID[requestID]
@@ -705,6 +789,7 @@ func (r *PostgresRepository) enrichPrayerRequests(ctx context.Context, userID st
 			continue
 		}
 		items[idx].GroupIDs = append(items[idx].GroupIDs, groupID)
+		items[idx].GroupNames = append(items[idx].GroupNames, groupName)
 	}
 	if err = groupRows.Err(); err != nil {
 		return err
