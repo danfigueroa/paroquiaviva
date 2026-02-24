@@ -222,7 +222,7 @@ export function FeedPage() {
             <article key={item.id} className={`pv-panel rounded-2xl p-5 ${lastPrayerHit?.requestID === item.id ? 'pv-card-hit' : ''}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-4">
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-panel text-lg font-bold text-primary">
+                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-bg text-lg font-bold text-primary shadow-sm">
                     {(item.authorDisplayName?.[0] || item.authorUsername?.[0] || 'U').toUpperCase()}
                   </span>
                   <div className="min-w-0">
