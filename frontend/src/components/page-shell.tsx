@@ -1,11 +1,38 @@
-import { PropsWithChildren } from 'react'
+import { PropsWithChildren, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/state/session-store'
 import { getSupabaseClient } from '@/lib/supabase'
+import { api } from '@/lib/api'
+
+type ProfileMini = {
+  email: string
+  username: string
+  displayName: string
+}
 
 export function PageShell({ children }: PropsWithChildren) {
   const navigate = useNavigate()
   const setAccessToken = useSessionStore((s) => s.setAccessToken)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const profileQuery = useQuery({
+    queryKey: ['profile', 'shell'],
+    queryFn: async () => {
+      const res = await api.get<ProfileMini>('/profile')
+      return res.data
+    }
+  })
+
+  const displayName = useMemo(() => {
+    const profile = profileQuery.data
+    if (!profile) {
+      return 'Minha conta'
+    }
+    return profile.displayName || profile.email.split('@')[0] || 'Minha conta'
+  }, [profileQuery.data])
+
+  const username = profileQuery.data?.username ? `@${profileQuery.data.username}` : ''
+  const avatarLetter = (displayName[0] || 'U').toUpperCase()
 
   async function onLogout() {
     const supabase = getSupabaseClient()
@@ -23,15 +50,45 @@ export function PageShell({ children }: PropsWithChildren) {
           <Link to="/" className="text-lg font-semibold text-secondary">
             Paróquia Viva
           </Link>
-          <nav className="flex flex-wrap gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <nav className="flex flex-wrap gap-2 text-sm">
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/feed">Mural</Link>
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/friends">Amigos</Link>
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/requests/new">Novo Pedido</Link>
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/groups">Grupos</Link>
-            <Link className="pv-chip rounded-full px-3 py-1.5" to="/profile">Perfil</Link>
             <Link className="pv-chip rounded-full px-3 py-1.5" to="/moderation">Moderação</Link>
-            <button className="pv-chip rounded-full px-3 py-1.5 text-[#f0c7b8]" onClick={onLogout} type="button">Sair</button>
-          </nav>
+            </nav>
+
+            <div className="relative">
+              <button
+                className="pv-chip inline-flex items-center gap-2 rounded-full px-2.5 py-1.5"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                type="button"
+              >
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#203225] text-xs font-bold text-[#d9e5d0]">{avatarLetter}</span>
+                <span className="hidden max-w-[150px] truncate text-sm text-secondary sm:inline">{displayName}</span>
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-[#334236] bg-[#121915] p-2 shadow-[0_20px_50px_-25px_rgba(0,0,0,0.8)]">
+                  <div className="px-3 py-2">
+                    <p className="truncate text-sm font-semibold text-secondary">{displayName}</p>
+                    <p className="pv-muted truncate text-xs">{username || profileQuery.data?.email || ''}</p>
+                  </div>
+                  <Link className="block rounded-xl px-3 py-2 text-sm text-[#e8dcca] hover:bg-[#1b2520]" onClick={() => setMenuOpen(false)} to="/profile">
+                    Ver perfil
+                  </Link>
+                  <button
+                    className="block w-full rounded-xl px-3 py-2 text-left text-sm text-[#f0c7b8] hover:bg-[#2a1d19]"
+                    onClick={onLogout}
+                    type="button"
+                  >
+                    Sair
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </header>
       <main className="flex-1">{children}</main>
