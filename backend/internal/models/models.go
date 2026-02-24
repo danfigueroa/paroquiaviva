@@ -60,6 +60,7 @@ const (
 type User struct {
 	ID          string    `json:"id"`
 	Email       string    `json:"email"`
+	Username    string    `json:"username"`
 	DisplayName string    `json:"displayName"`
 	AvatarURL   *string   `json:"avatarUrl,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
@@ -108,4 +109,27 @@ type GroupJoinRequest struct {
 	UserID      string    `json:"userId"`
 	Status      string    `json:"status"`
 	RequestedAt time.Time `json:"requestedAt"`
+}
+
+type Friend struct {
+	UserID      string    `json:"userId"`
+	Username    string    `json:"username"`
+	DisplayName string    `json:"displayName"`
+	AvatarURL   *string   `json:"avatarUrl,omitempty"`
+	ConnectedAt time.Time `json:"connectedAt"`
+}
+
+type FriendRequest struct {
+	ID          string    `json:"id"`
+	FromUserID  string    `json:"fromUserId"`
+	Username    string    `json:"username"`
+	DisplayName string    `json:"displayName"`
+	RequestedAt time.Time `json:"requestedAt"`
+}
+
+type UserSummary struct {
+	UserID      string  `json:"userId"`
+	Username    string  `json:"username"`
+	DisplayName string  `json:"displayName"`
+	AvatarURL   *string `json:"avatarUrl,omitempty"`
 }

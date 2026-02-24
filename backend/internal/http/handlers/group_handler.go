@@ -31,6 +31,11 @@ func NewGroupHandler(service *services.Service) *GroupHandler {
 
 func (h *GroupHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
+	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+		return
+	}
 	items, err := h.service.ListUserGroups(r.Context(), userID)
 	if err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
@@ -41,6 +46,11 @@ func (h *GroupHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 
 func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
+	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+		return
+	}
 	var req createGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		shared.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload", nil)
@@ -49,7 +59,7 @@ func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	group, err := h.service.CreateGroup(r.Context(), userID, req.Name, req.Description, req.ImageURL, models.GroupJoinPolicy(req.JoinPolicy))
 	if err != nil {
-		if errors.Is(err, services.ErrInvalidGroupName) || errors.Is(err, services.ErrInvalidGroupDescription) {
+		if errors.Is(err, services.ErrInvalidGroupName) || errors.Is(err, services.ErrInvalidGroupDescription) || errors.Is(err, services.ErrInvalidJoinPolicy) {
 			shared.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
 			return
 		}
@@ -62,6 +72,11 @@ func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *GroupHandler) RequestJoin(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
+	if err := h.service.EnsureAuthUser(r.Context(), userID, userEmail); err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+		return
+	}
 	groupID := chi.URLParam(r, "id")
 	err := h.service.RequestJoinGroup(r.Context(), userID, groupID)
 	if err != nil {
@@ -77,6 +92,11 @@ func (h *GroupHandler) RequestJoin(w http.ResponseWriter, r *http.Request) {
 
 func (h *GroupHandler) ListJoinRequests(w http.ResponseWriter, r *http.Request) {
 	actorUserID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
+	if err := h.service.EnsureAuthUser(r.Context(), actorUserID, userEmail); err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+		return
+	}
 	groupID := chi.URLParam(r, "id")
 	items, err := h.service.ListGroupJoinRequests(r.Context(), actorUserID, groupID)
 	if err != nil {
@@ -92,6 +112,11 @@ func (h *GroupHandler) ListJoinRequests(w http.ResponseWriter, r *http.Request) 
 
 func (h *GroupHandler) ApproveJoinRequest(w http.ResponseWriter, r *http.Request) {
 	actorUserID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
+	if err := h.service.EnsureAuthUser(r.Context(), actorUserID, userEmail); err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+		return
+	}
 	groupID := chi.URLParam(r, "id")
 	requestID := chi.URLParam(r, "requestId")
 	err := h.service.ApproveGroupJoinRequest(r.Context(), actorUserID, groupID, requestID)

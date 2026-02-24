@@ -7,6 +7,7 @@ type contextKey string
 const (
 	ContextKeyRequestID contextKey = "requestId"
 	ContextKeyUserID    contextKey = "userId"
+	ContextKeyUserEmail contextKey = "userEmail"
 )
 
 func SetContextValue[T any](ctx context.Context, key contextKey, value T) context.Context {

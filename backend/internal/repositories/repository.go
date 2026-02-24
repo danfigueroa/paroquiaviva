@@ -3,10 +3,12 @@ package repositories
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"parish-viva/backend/internal/models"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -14,10 +16,17 @@ var ErrDuplicatePrayedAction = errors.New("duplicate prayed action")
 var ErrInviteOnlyGroup = errors.New("invite only group")
 var ErrGroupAdminRequired = errors.New("group admin required")
 var ErrJoinRequestNotFound = errors.New("join request not found")
+var ErrFriendUserNotFound = errors.New("friend user not found")
+var ErrCannotAddSelf = errors.New("cannot add self")
+var ErrFriendRequestAlreadyExists = errors.New("friend request already exists")
+var ErrFriendRequestNotFound = errors.New("friend request not found")
+var ErrUsernameTaken = errors.New("username already in use")
+var ErrGroupAccessDenied = errors.New("group access denied")
 
 type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
-	UpdateUserProfile(ctx context.Context, userID, displayName string, avatarURL *string) (models.User, error)
+	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error)
+	UpsertAuthUser(ctx context.Context, userID, email string) error
 	CreatePrayerRequest(ctx context.Context, in models.CreatePrayerRequestInput) (models.PrayerRequest, error)
 	ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error)
 	ListGroupsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
@@ -29,6 +38,11 @@ type Repository interface {
 	RequestJoinGroup(ctx context.Context, userID, groupID string) error
 	ListGroupJoinRequests(ctx context.Context, actorUserID, groupID string) ([]models.GroupJoinRequest, error)
 	ApproveGroupJoinRequest(ctx context.Context, actorUserID, groupID, requestID string) error
+	SendFriendRequest(ctx context.Context, fromUserID, targetUsername string) error
+	ListFriends(ctx context.Context, userID string) ([]models.Friend, error)
+	ListPendingFriendRequests(ctx context.Context, userID string) ([]models.FriendRequest, error)
+	AcceptFriendRequest(ctx context.Context, userID, requestID string) error
+	SearchUsersForFriendship(ctx context.Context, userID, query string, limit int) ([]models.UserSummary, error)
 }
 
 type PostgresRepository struct {
@@ -42,22 +56,41 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) GetUserByID(ctx context.Context, userID string) (models.User, error) {
 	var u models.User
 	err := r.db.QueryRow(ctx, `
-		SELECT id::text, email, display_name, avatar_url, created_at, updated_at
+		SELECT id::text, email, username, display_name, avatar_url, created_at, updated_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
-	`, userID).Scan(&u.ID, &u.Email, &u.DisplayName, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
+	`, userID).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
 }
 
-func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, displayName string, avatarURL *string) (models.User, error) {
+func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error) {
 	var u models.User
 	err := r.db.QueryRow(ctx, `
 		UPDATE users
-		SET display_name = $2, avatar_url = $3, updated_at = NOW()
+		SET display_name = $2, username = $3, avatar_url = $4, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id::text, email, display_name, avatar_url, created_at, updated_at
-	`, userID, displayName, avatarURL).Scan(&u.ID, &u.Email, &u.DisplayName, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
+		RETURNING id::text, email, username, display_name, avatar_url, created_at, updated_at
+	`, userID, displayName, username, avatarURL).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "username") {
+			return models.User{}, ErrUsernameTaken
+		}
+	}
 	return u, err
+}
+
+func (r *PostgresRepository) UpsertAuthUser(ctx context.Context, userID, email string) error {
+	if userID == "" || email == "" {
+		return nil
+	}
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO users (id, email, username, display_name)
+		VALUES ($1, $2, 'user_' || SUBSTRING($1::text, 1, 8), SPLIT_PART($2, '@', 1))
+		ON CONFLICT (id) DO UPDATE
+		SET email = EXCLUDED.email, updated_at = NOW()
+	`, userID, email)
+	return err
 }
 
 func (r *PostgresRepository) CreatePrayerRequest(ctx context.Context, in models.CreatePrayerRequestInput) (models.PrayerRequest, error) {
@@ -80,6 +113,23 @@ func (r *PostgresRepository) CreatePrayerRequest(ctx context.Context, in models.
 	}
 
 	for _, groupID := range in.GroupIDs {
+		var canPost bool
+		err = tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM group_memberships gm
+				WHERE gm.group_id = $1
+				  AND gm.user_id = $2
+				  AND gm.deleted_at IS NULL
+			)
+		`, groupID, in.AuthorID).Scan(&canPost)
+		if err != nil {
+			return models.PrayerRequest{}, err
+		}
+		if !canPost {
+			return models.PrayerRequest{}, ErrGroupAccessDenied
+		}
+
 		_, err = tx.Exec(ctx, `
 			INSERT INTO prayer_request_groups (prayer_request_id, group_id)
 			VALUES ($1, $2)
@@ -199,6 +249,12 @@ func (r *PostgresRepository) ListHomePrayerRequests(ctx context.Context, userID 
 			WHERE status = 'ACCEPTED' AND (user_id = $1 OR friend_user_id = $1)
 		),
 		home_requests AS (
+			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
+			FROM prayer_requests pr
+			WHERE pr.author_id = $1
+			  AND pr.status IN ('ACTIVE', 'PENDING_REVIEW')
+			  AND pr.deleted_at IS NULL
+			UNION
 			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
 			FROM prayer_requests pr
 			INNER JOIN friend_ids f ON f.friend_id = pr.author_id
@@ -405,6 +461,171 @@ func scanPrayerRequests(rows pgx.Rows) ([]models.PrayerRequest, error) {
 			return nil, err
 		}
 		items = append(items, pr)
+	}
+	return items, rows.Err()
+}
+
+func (r *PostgresRepository) SendFriendRequest(ctx context.Context, fromUserID, targetUsername string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var targetUserID string
+	err = tx.QueryRow(ctx, `
+		SELECT id::text
+		FROM users
+		WHERE LOWER(username) = LOWER($1) AND deleted_at IS NULL
+	`, targetUsername).Scan(&targetUserID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrFriendUserNotFound
+		}
+		return err
+	}
+	if targetUserID == fromUserID {
+		return ErrCannotAddSelf
+	}
+
+	var existingStatus string
+	err = tx.QueryRow(ctx, `
+		SELECT status
+		FROM friendships
+		WHERE (user_id = $1 AND friend_user_id = $2)
+		   OR (user_id = $2 AND friend_user_id = $1)
+		LIMIT 1
+	`, fromUserID, targetUserID).Scan(&existingStatus)
+	if err == nil {
+		return ErrFriendRequestAlreadyExists
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO friendships (user_id, friend_user_id, status)
+		VALUES ($1, $2, 'PENDING')
+	`, fromUserID, targetUserID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *PostgresRepository) ListFriends(ctx context.Context, userID string) ([]models.Friend, error) {
+	rows, err := r.db.Query(ctx, `
+		WITH friend_pairs AS (
+			SELECT
+				CASE WHEN user_id = $1 THEN friend_user_id ELSE user_id END AS friend_id,
+				updated_at
+			FROM friendships
+			WHERE status = 'ACCEPTED'
+			  AND (user_id = $1 OR friend_user_id = $1)
+		)
+		SELECT u.id::text, u.username, u.display_name, u.avatar_url, fp.updated_at
+		FROM friend_pairs fp
+		INNER JOIN users u ON u.id = fp.friend_id
+		WHERE u.deleted_at IS NULL
+		ORDER BY fp.updated_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.Friend, 0)
+	for rows.Next() {
+		var item models.Friend
+		err = rows.Scan(&item.UserID, &item.Username, &item.DisplayName, &item.AvatarURL, &item.ConnectedAt)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *PostgresRepository) ListPendingFriendRequests(ctx context.Context, userID string) ([]models.FriendRequest, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT f.id::text, u.id::text, u.username, u.display_name, f.created_at
+		FROM friendships f
+		INNER JOIN users u ON u.id = f.user_id
+		WHERE f.friend_user_id = $1
+		  AND f.status = 'PENDING'
+		  AND u.deleted_at IS NULL
+		ORDER BY f.created_at ASC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.FriendRequest, 0)
+	for rows.Next() {
+		var item models.FriendRequest
+		err = rows.Scan(&item.ID, &item.FromUserID, &item.Username, &item.DisplayName, &item.RequestedAt)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *PostgresRepository) AcceptFriendRequest(ctx context.Context, userID, requestID string) error {
+	ct, err := r.db.Exec(ctx, `
+		UPDATE friendships
+		SET status = 'ACCEPTED', updated_at = NOW()
+		WHERE id = $1
+		  AND friend_user_id = $2
+		  AND status = 'PENDING'
+	`, requestID, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrFriendRequestNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) SearchUsersForFriendship(ctx context.Context, userID, query string, limit int) ([]models.UserSummary, error) {
+	if limit <= 0 || limit > 30 {
+		limit = 20
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT u.id::text, u.username, u.display_name, u.avatar_url
+		FROM users u
+		WHERE u.id <> $1
+		  AND u.deleted_at IS NULL
+		  AND (
+			  u.username ILIKE $2 || '%'
+			  OR u.display_name ILIKE '%' || $2 || '%'
+		  )
+		  AND NOT EXISTS (
+			  SELECT 1
+			  FROM friendships f
+			  WHERE (f.user_id = $1 AND f.friend_user_id = u.id)
+			     OR (f.user_id = u.id AND f.friend_user_id = $1)
+		  )
+		ORDER BY u.display_name ASC
+		LIMIT $3
+	`, userID, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.UserSummary, 0)
+	for rows.Next() {
+		var item models.UserSummary
+		err = rows.Scan(&item.UserID, &item.Username, &item.DisplayName, &item.AvatarURL)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
 	}
 	return items, rows.Err()
 }

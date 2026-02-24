@@ -11,9 +11,12 @@ import (
 func OptionalAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := parseToken(r, validator)
+			userID, userEmail, ok := parseToken(r, validator)
 			if ok {
 				ctx := SetContextValue(r.Context(), ContextKeyUserID, userID)
+				if userEmail != "" {
+					ctx = SetContextValue(ctx, ContextKeyUserEmail, userEmail)
+				}
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -25,32 +28,36 @@ func OptionalAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 func RequireAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := parseToken(r, validator)
+			userID, userEmail, ok := parseToken(r, validator)
 			if !ok {
 				writeUnauthorized(w)
 				return
 			}
 			ctx := SetContextValue(r.Context(), ContextKeyUserID, userID)
+			if userEmail != "" {
+				ctx = SetContextValue(ctx, ContextKeyUserEmail, userEmail)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-func parseToken(r *http.Request, validator *auth.Validator) (string, bool) {
+func parseToken(r *http.Request, validator *auth.Validator) (string, string, bool) {
 	header := r.Header.Get("Authorization")
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return "", false
+		return "", "", false
 	}
 	claims, err := validator.ParseAndValidate(r.Context(), parts[1])
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 	sub, _ := claims["sub"].(string)
 	if sub == "" {
-		return "", false
+		return "", "", false
 	}
-	return sub, true
+	email, _ := claims["email"].(string)
+	return sub, email, true
 }
 
 func writeUnauthorized(w http.ResponseWriter) {
