@@ -12,5 +12,6 @@ func ensureAuthUser(service *services.Service, r *http.Request) error {
 	userEmail := middleware.GetString(r.Context(), middleware.ContextKeyUserEmail)
 	username := middleware.GetString(r.Context(), middleware.ContextKeyUsername)
 	displayName := middleware.GetString(r.Context(), middleware.ContextKeyDisplayName)
-	return service.EnsureAuthUser(r.Context(), userID, userEmail, username, displayName)
+	tradition := middleware.GetString(r.Context(), middleware.ContextKeyTradition)
+	return service.EnsureAuthUser(r.Context(), userID, userEmail, username, displayName, tradition)
 }

@@ -55,12 +55,19 @@ func NewPrayerHandler(service *services.Service, prayedWindowHour int) *PrayerHa
 
 func (h *PrayerHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 	limit, offset, page := parseFeedPagination(r)
-	items, err := h.service.ListPublicPrayerRequests(r.Context(), limit, offset)
+	viewerUserID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	if viewerUserID != "" {
+		if err := ensureAuthUser(h.service, r); err != nil {
+			shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+			return
+		}
+	}
+	items, err := h.service.ListPublicPrayerRequests(r.Context(), viewerUserID, limit, offset)
 	if err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
 		return
 	}
-	total, err := h.service.CountPublicPrayerRequests(r.Context())
+	total, err := h.service.CountPublicPrayerRequests(r.Context(), viewerUserID)
 	if err != nil {
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
 		return
@@ -284,7 +291,7 @@ func (h *PrayerHandler) Pray(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	actionType := req.ActionType
 	if actionType == "" {
-		actionType = string(models.PrayerActionHailMary)
+		actionType = string(h.service.DefaultPrayerActionFor(r.Context(), userID))
 	}
 	err := h.service.RecordPrayerAction(r.Context(), userID, requestID, models.PrayerActionType(actionType), h.prayedWindowHour)
 	if err != nil {

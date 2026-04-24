@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -11,19 +12,9 @@ import (
 func OptionalAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, userEmail, username, displayName, ok := parseToken(r, validator)
+			claims, ok := parseToken(r, validator)
 			if ok {
-				ctx := SetContextValue(r.Context(), ContextKeyUserID, userID)
-				if userEmail != "" {
-					ctx = SetContextValue(ctx, ContextKeyUserEmail, userEmail)
-				}
-				if username != "" {
-					ctx = SetContextValue(ctx, ContextKeyUsername, username)
-				}
-				if displayName != "" {
-					ctx = SetContextValue(ctx, ContextKeyDisplayName, displayName)
-				}
-				next.ServeHTTP(w, r.WithContext(ctx))
+				next.ServeHTTP(w, r.WithContext(applyAuthClaims(r.Context(), claims)))
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -34,43 +25,59 @@ func OptionalAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 func RequireAuth(validator *auth.Validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, userEmail, username, displayName, ok := parseToken(r, validator)
+			claims, ok := parseToken(r, validator)
 			if !ok {
 				writeUnauthorized(w)
 				return
 			}
-			ctx := SetContextValue(r.Context(), ContextKeyUserID, userID)
-			if userEmail != "" {
-				ctx = SetContextValue(ctx, ContextKeyUserEmail, userEmail)
-			}
-			if username != "" {
-				ctx = SetContextValue(ctx, ContextKeyUsername, username)
-			}
-			if displayName != "" {
-				ctx = SetContextValue(ctx, ContextKeyDisplayName, displayName)
-			}
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(applyAuthClaims(r.Context(), claims)))
 		})
 	}
 }
 
-func parseToken(r *http.Request, validator *auth.Validator) (string, string, string, string, bool) {
+type authClaims struct {
+	userID      string
+	userEmail   string
+	username    string
+	displayName string
+	tradition   string
+}
+
+func applyAuthClaims(ctx context.Context, c authClaims) context.Context {
+	ctx = SetContextValue(ctx, ContextKeyUserID, c.userID)
+	if c.userEmail != "" {
+		ctx = SetContextValue(ctx, ContextKeyUserEmail, c.userEmail)
+	}
+	if c.username != "" {
+		ctx = SetContextValue(ctx, ContextKeyUsername, c.username)
+	}
+	if c.displayName != "" {
+		ctx = SetContextValue(ctx, ContextKeyDisplayName, c.displayName)
+	}
+	if c.tradition != "" {
+		ctx = SetContextValue(ctx, ContextKeyTradition, c.tradition)
+	}
+	return ctx
+}
+
+func parseToken(r *http.Request, validator *auth.Validator) (authClaims, bool) {
 	header := r.Header.Get("Authorization")
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return "", "", "", "", false
+		return authClaims{}, false
 	}
 	claims, err := validator.ParseAndValidate(r.Context(), parts[1])
 	if err != nil {
-		return "", "", "", "", false
+		return authClaims{}, false
 	}
 	sub, _ := claims["sub"].(string)
 	if sub == "" {
-		return "", "", "", "", false
+		return authClaims{}, false
 	}
 	email, _ := claims["email"].(string)
 	username := claimString(claims, "preferred_username")
 	displayName := claimString(claims, "name")
+	tradition := ""
 
 	if meta, ok := claims["user_metadata"].(map[string]any); ok {
 		if username == "" {
@@ -81,6 +88,9 @@ func parseToken(r *http.Request, validator *auth.Validator) (string, string, str
 		}
 		if displayName == "" {
 			displayName = anyToString(meta["displayName"])
+		}
+		if tradition == "" {
+			tradition = anyToString(meta["tradition"])
 		}
 	}
 	if meta, ok := claims["raw_user_meta_data"].(map[string]any); ok {
@@ -93,9 +103,18 @@ func parseToken(r *http.Request, validator *auth.Validator) (string, string, str
 		if displayName == "" {
 			displayName = anyToString(meta["displayName"])
 		}
+		if tradition == "" {
+			tradition = anyToString(meta["tradition"])
+		}
 	}
 
-	return sub, email, username, displayName, true
+	return authClaims{
+		userID:      sub,
+		userEmail:   email,
+		username:    username,
+		displayName: displayName,
+		tradition:   strings.ToUpper(tradition),
+	}, true
 }
 
 func claimString(claims map[string]any, key string) string {

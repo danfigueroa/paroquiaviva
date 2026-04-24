@@ -7,6 +7,7 @@ import (
 
 	"parish-viva/backend/internal/http/middleware"
 	"parish-viva/backend/internal/http/shared"
+	"parish-viva/backend/internal/models"
 	"parish-viva/backend/internal/repositories"
 	"parish-viva/backend/internal/services"
 )
@@ -19,6 +20,10 @@ type updateProfileRequest struct {
 	DisplayName string  `json:"displayName"`
 	Username    string  `json:"username"`
 	AvatarURL   *string `json:"avatarUrl"`
+}
+
+type updateTraditionRequest struct {
+	Tradition string `json:"tradition"`
 }
 
 func NewProfileHandler(service *services.Service) *ProfileHandler {
@@ -58,6 +63,29 @@ func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, services.ErrInvalidDisplayName) || errors.Is(err, services.ErrInvalidUsername) {
 			shared.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
+			return
+		}
+		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
+		return
+	}
+	shared.WriteJSON(w, http.StatusOK, profile)
+}
+
+func (h *ProfileHandler) UpdateTradition(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetString(r.Context(), middleware.ContextKeyUserID)
+	if err := ensureAuthUser(h.service, r); err != nil {
+		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
+		return
+	}
+	var req updateTraditionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		shared.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload", nil)
+		return
+	}
+	profile, err := h.service.SetUserTradition(r.Context(), userID, models.Tradition(req.Tradition))
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidTradition) {
+			shared.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid tradition", nil)
 			return
 		}
 		shared.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error", nil)
