@@ -9,6 +9,8 @@ type PrayerCategory string
 type PrayerStatus string
 type PrayerActionType string
 
+type Tradition string
+
 type GroupJoinPolicy string
 
 type GroupRole string
@@ -44,6 +46,17 @@ const (
 	PrayerActionGloryBe      PrayerActionType = "GLORY_BE"
 	PrayerActionRosaryDecade PrayerActionType = "ROSARY_DECADE"
 	PrayerActionRosaryFull   PrayerActionType = "ROSARY_FULL"
+
+	PrayerActionIPrayed      PrayerActionType = "I_PRAYED"
+	PrayerActionIntercession PrayerActionType = "INTERCESSION"
+	PrayerActionFasting      PrayerActionType = "FASTING"
+	PrayerActionGratitude    PrayerActionType = "GRATITUDE"
+	PrayerActionCryingOut    PrayerActionType = "CRYING_OUT"
+)
+
+const (
+	TraditionCatholic    Tradition = "CATHOLIC"
+	TraditionEvangelical Tradition = "EVANGELICAL"
 )
 
 const (
@@ -72,6 +85,7 @@ type User struct {
 	Username    string    `json:"username"`
 	DisplayName string    `json:"displayName"`
 	AvatarURL   *string   `json:"avatarUrl,omitempty"`
+	Tradition   Tradition `json:"tradition"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
@@ -85,6 +99,7 @@ type PrayerRequest struct {
 	Body              string           `json:"body"`
 	Category          PrayerCategory   `json:"category"`
 	Visibility        Visibility       `json:"visibility"`
+	Tradition         Tradition        `json:"tradition"`
 	AllowAnonymous    bool             `json:"allowAnonymous"`
 	Status            PrayerStatus     `json:"status"`
 	PrayedCount       int64            `json:"prayedCount"`

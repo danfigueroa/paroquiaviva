@@ -26,6 +26,7 @@ var ErrInvalidGroupDescription = errors.New("invalid group description")
 var ErrInvalidJoinPolicy = errors.New("invalid joinPolicy")
 var ErrInvalidUsername = errors.New("invalid username")
 var ErrInvalidPrayerActionType = errors.New("invalid prayer action type")
+var ErrInvalidTradition = errors.New("invalid tradition")
 
 func NewService(repo repositories.Repository) *Service {
 	return &Service{repo: repo}
@@ -129,28 +130,50 @@ func (s *Service) GetPrayerRequestByID(ctx context.Context, userID, requestID st
 	return s.repo.GetPrayerRequestByID(ctx, userID, requestID)
 }
 
-func (s *Service) ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error) {
+func (s *Service) ListPublicPrayerRequests(ctx context.Context, viewerUserID string, limit, offset int) ([]models.PrayerRequest, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
 	if offset < 0 {
 		offset = 0
 	}
-	return s.repo.ListPublicPrayerRequests(ctx, limit, offset)
+	return s.repo.ListPublicPrayerRequests(ctx, viewerUserID, limit, offset)
 }
 
-func (s *Service) CountPublicPrayerRequests(ctx context.Context) (int64, error) {
-	return s.repo.CountPublicPrayerRequests(ctx)
+func (s *Service) CountPublicPrayerRequests(ctx context.Context, viewerUserID string) (int64, error) {
+	return s.repo.CountPublicPrayerRequests(ctx, viewerUserID)
 }
 
 func (s *Service) RecordPrayerAction(ctx context.Context, userID, requestID string, actionType models.PrayerActionType, windowHours int) error {
 	if windowHours < 1 {
 		windowHours = 12
 	}
-	if !isValidPrayerActionType(actionType) {
+	viewer, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !isValidPrayerActionTypeFor(viewer.Tradition, actionType) {
 		return ErrInvalidPrayerActionType
 	}
 	return s.repo.RecordPrayerAction(ctx, userID, requestID, actionType, windowHours)
+}
+
+func (s *Service) SetUserTradition(ctx context.Context, userID string, tradition models.Tradition) (models.User, error) {
+	if !isValidTradition(tradition) {
+		return models.User{}, ErrInvalidTradition
+	}
+	return s.repo.SetUserTradition(ctx, userID, tradition)
+}
+
+func (s *Service) DefaultPrayerActionFor(ctx context.Context, userID string) models.PrayerActionType {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return models.PrayerActionHailMary
+	}
+	if user.Tradition == models.TraditionEvangelical {
+		return models.PrayerActionIPrayed
+	}
+	return models.PrayerActionHailMary
 }
 
 func (s *Service) ListHomePrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
@@ -267,13 +290,14 @@ func (s *Service) SearchUsersForFriendship(ctx context.Context, userID, query st
 	return s.repo.SearchUsersForFriendship(ctx, userID, query, limit)
 }
 
-func (s *Service) EnsureAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName string) error {
+func (s *Service) EnsureAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName, preferredTradition string) error {
 	if strings.TrimSpace(email) == "" && strings.TrimSpace(userID) != "" {
 		email = userID + "@auth.local"
 	}
 	preferredUsername = normalizeUsername(preferredUsername)
 	preferredDisplayName = strings.TrimSpace(preferredDisplayName)
-	return s.repo.UpsertAuthUser(ctx, userID, email, preferredUsername, preferredDisplayName)
+	preferredTradition = strings.ToUpper(strings.TrimSpace(preferredTradition))
+	return s.repo.UpsertAuthUser(ctx, userID, email, preferredUsername, preferredDisplayName, preferredTradition)
 }
 
 func normalizeUsername(value string) string {
@@ -298,9 +322,26 @@ func isValidVisibility(visibility models.Visibility) bool {
 	}
 }
 
-func isValidPrayerActionType(actionType models.PrayerActionType) bool {
-	switch actionType {
-	case models.PrayerActionHailMary, models.PrayerActionOurFather, models.PrayerActionGloryBe, models.PrayerActionRosaryDecade, models.PrayerActionRosaryFull:
+func isValidPrayerActionTypeFor(tradition models.Tradition, actionType models.PrayerActionType) bool {
+	switch tradition {
+	case models.TraditionEvangelical:
+		switch actionType {
+		case models.PrayerActionIPrayed, models.PrayerActionIntercession, models.PrayerActionFasting, models.PrayerActionGratitude, models.PrayerActionCryingOut:
+			return true
+		}
+		return false
+	default:
+		switch actionType {
+		case models.PrayerActionHailMary, models.PrayerActionOurFather, models.PrayerActionGloryBe, models.PrayerActionRosaryDecade, models.PrayerActionRosaryFull:
+			return true
+		}
+		return false
+	}
+}
+
+func isValidTradition(tradition models.Tradition) bool {
+	switch tradition {
+	case models.TraditionCatholic, models.TraditionEvangelical:
 		return true
 	default:
 		return false

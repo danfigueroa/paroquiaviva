@@ -28,14 +28,15 @@ var ErrPrayerRequestForbidden = errors.New("prayer request forbidden")
 type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
 	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error)
-	UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName string) error
+	UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName, preferredTradition string) error
+	SetUserTradition(ctx context.Context, userID string, tradition models.Tradition) (models.User, error)
 	UsernameExists(ctx context.Context, username string) (bool, error)
 	CreatePrayerRequest(ctx context.Context, in models.CreatePrayerRequestInput) (models.PrayerRequest, error)
 	UpdatePrayerRequest(ctx context.Context, in models.UpdatePrayerRequestInput) (models.PrayerRequest, error)
 	DeletePrayerRequest(ctx context.Context, userID, requestID string) error
 	GetPrayerRequestByID(ctx context.Context, userID, requestID string) (models.PrayerRequest, error)
-	ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error)
-	CountPublicPrayerRequests(ctx context.Context) (int64, error)
+	ListPublicPrayerRequests(ctx context.Context, viewerUserID string, limit, offset int) ([]models.PrayerRequest, error)
+	CountPublicPrayerRequests(ctx context.Context, viewerUserID string) (int64, error)
 	ListGroupsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
 	CountGroupsPrayerRequests(ctx context.Context, userID string) (int64, error)
 	ListFriendsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error)
@@ -67,10 +68,10 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) GetUserByID(ctx context.Context, userID string) (models.User, error) {
 	var u models.User
 	err := r.db.QueryRow(ctx, `
-		SELECT id::text, email, username, display_name, avatar_url, created_at, updated_at
+		SELECT id::text, email, username, display_name, avatar_url, tradition, created_at, updated_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
-	`, userID).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
+	`, userID).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
 }
 
@@ -80,8 +81,8 @@ func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, disp
 		UPDATE users
 		SET display_name = $2, username = $3, avatar_url = $4, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id::text, email, username, display_name, avatar_url, created_at, updated_at
-	`, userID, displayName, username, avatarURL).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
+		RETURNING id::text, email, username, display_name, avatar_url, tradition, created_at, updated_at
+	`, userID, displayName, username, avatarURL).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "username") {
@@ -91,19 +92,35 @@ func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, disp
 	return u, err
 }
 
-func (r *PostgresRepository) UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName string) error {
+func (r *PostgresRepository) SetUserTradition(ctx context.Context, userID string, tradition models.Tradition) (models.User, error) {
+	var u models.User
+	err := r.db.QueryRow(ctx, `
+		UPDATE users
+		SET tradition = $2, updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING id::text, email, username, display_name, avatar_url, tradition, created_at, updated_at
+	`, userID, tradition).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
+	return u, err
+}
+
+func (r *PostgresRepository) UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName, preferredTradition string) error {
 	if userID == "" || email == "" {
 		return nil
 	}
 	preferredUsername = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(preferredUsername), "@"))
 	preferredDisplayName = strings.TrimSpace(preferredDisplayName)
+	preferredTradition = strings.ToUpper(strings.TrimSpace(preferredTradition))
+	if preferredTradition != string(models.TraditionCatholic) && preferredTradition != string(models.TraditionEvangelical) {
+		preferredTradition = ""
+	}
 	_, err := r.db.Exec(ctx, `
-		INSERT INTO users (id, email, username, display_name)
+		INSERT INTO users (id, email, username, display_name, tradition)
 		VALUES (
 			$1,
 			$2,
 			COALESCE(NULLIF($3, ''), 'user_' || SUBSTRING($1::text, 1, 8)),
-			COALESCE(NULLIF($4, ''), SPLIT_PART($2, '@', 1))
+			COALESCE(NULLIF($4, ''), SPLIT_PART($2, '@', 1)),
+			COALESCE(NULLIF($5, ''), 'CATHOLIC')::tradition
 		)
 		ON CONFLICT (id) DO UPDATE
 		SET
@@ -117,7 +134,7 @@ func (r *PostgresRepository) UpsertAuthUser(ctx context.Context, userID, email, 
 				ELSE users.display_name
 			END,
 			updated_at = NOW()
-	`, userID, email, preferredUsername, preferredDisplayName)
+	`, userID, email, preferredUsername, preferredDisplayName, preferredTradition)
 	return err
 }
 
@@ -143,11 +160,11 @@ func (r *PostgresRepository) CreatePrayerRequest(ctx context.Context, in models.
 
 	var pr models.PrayerRequest
 	err = tx.QueryRow(ctx, `
-		INSERT INTO prayer_requests (author_id, title, body, category, visibility, allow_anonymous, status)
-		VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
-		RETURNING id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
+		INSERT INTO prayer_requests (author_id, title, body, category, visibility, allow_anonymous, status, tradition)
+		VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', COALESCE((SELECT tradition FROM users WHERE id = $1), 'CATHOLIC'))
+		RETURNING id::text, author_id::text, title, body, category, visibility, tradition, allow_anonymous, status, prayed_count, created_at, updated_at
 	`, in.AuthorID, in.Title, in.Body, in.Category, in.Visibility, in.AllowAnonymous).
-		Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
+		Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.Tradition, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
 	if err != nil {
 		return models.PrayerRequest{}, err
 	}
@@ -246,10 +263,10 @@ func (r *PostgresRepository) UpdatePrayerRequest(ctx context.Context, in models.
 
 	var pr models.PrayerRequest
 	err = tx.QueryRow(ctx, `
-		SELECT id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
+		SELECT id::text, author_id::text, title, body, category, visibility, tradition, allow_anonymous, status, prayed_count, created_at, updated_at
 		FROM prayer_requests
 		WHERE id = $1
-	`, in.RequestID).Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
+	`, in.RequestID).Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.Tradition, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
 	if err != nil {
 		return models.PrayerRequest{}, err
 	}
@@ -280,10 +297,14 @@ func (r *PostgresRepository) DeletePrayerRequest(ctx context.Context, userID, re
 func (r *PostgresRepository) GetPrayerRequestByID(ctx context.Context, userID, requestID string) (models.PrayerRequest, error) {
 	var pr models.PrayerRequest
 	err := r.db.QueryRow(ctx, `
-		SELECT id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
+		SELECT id::text, author_id::text, title, body, category, visibility, tradition, allow_anonymous, status, prayed_count, created_at, updated_at
 		FROM prayer_requests
 		WHERE id = $1
 		  AND deleted_at IS NULL
+		  AND tradition = COALESCE(
+			(SELECT tradition FROM users WHERE id = $2 AND deleted_at IS NULL),
+			prayer_requests.tradition
+		  )
 		  AND (
 			author_id = $2
 			OR (visibility = 'PUBLIC' AND status = 'ACTIVE')
@@ -300,7 +321,7 @@ func (r *PostgresRepository) GetPrayerRequestByID(ctx context.Context, userID, r
 				)
 			)
 		  )
-	`, requestID, userID).Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
+	`, requestID, userID).Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.Tradition, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.PrayerRequest{}, ErrPrayerRequestNotFound
@@ -315,44 +336,44 @@ func (r *PostgresRepository) GetPrayerRequestByID(ctx context.Context, userID, r
 	return items[0], nil
 }
 
-func (r *PostgresRepository) ListPublicPrayerRequests(ctx context.Context, limit, offset int) ([]models.PrayerRequest, error) {
+func (r *PostgresRepository) ListPublicPrayerRequests(ctx context.Context, viewerUserID string, limit, offset int) ([]models.PrayerRequest, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
+		SELECT id::text, author_id::text, title, body, category, visibility, tradition, allow_anonymous, status, prayed_count, created_at, updated_at
 		FROM prayer_requests
 		WHERE visibility = 'PUBLIC' AND status = 'ACTIVE' AND deleted_at IS NULL
+		  AND tradition = COALESCE(
+			(SELECT tradition FROM users WHERE id = NULLIF($3, '')::uuid AND deleted_at IS NULL),
+			prayer_requests.tradition
+		  )
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
-	`, limit, offset)
+	`, limit, offset, viewerUserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	items := make([]models.PrayerRequest, 0)
-	for rows.Next() {
-		var pr models.PrayerRequest
-		err = rows.Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, pr)
-	}
-	if err = rows.Err(); err != nil {
+	items, err := scanPrayerRequests(rows)
+	if err != nil {
 		return nil, err
 	}
-	if err = r.enrichPrayerRequests(ctx, "", items); err != nil {
+	if err = r.enrichPrayerRequests(ctx, viewerUserID, items); err != nil {
 		return nil, err
 	}
 	return items, nil
 }
 
-func (r *PostgresRepository) CountPublicPrayerRequests(ctx context.Context) (int64, error) {
+func (r *PostgresRepository) CountPublicPrayerRequests(ctx context.Context, viewerUserID string) (int64, error) {
 	var total int64
 	err := r.db.QueryRow(ctx, `
 		SELECT COUNT(*)::bigint
 		FROM prayer_requests
 		WHERE visibility = 'PUBLIC' AND status = 'ACTIVE' AND deleted_at IS NULL
-	`).Scan(&total)
+		  AND tradition = COALESCE(
+			(SELECT tradition FROM users WHERE id = NULLIF($1, '')::uuid AND deleted_at IS NULL),
+			prayer_requests.tradition
+		  )
+	`, viewerUserID).Scan(&total)
 	return total, err
 }
 
@@ -386,7 +407,7 @@ func (r *PostgresRepository) RecordPrayerAction(ctx context.Context, userID, req
 
 func (r *PostgresRepository) ListGroupsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT DISTINCT pr.id::text, pr.author_id::text, pr.title, pr.body, pr.category, pr.visibility, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
+		SELECT DISTINCT pr.id::text, pr.author_id::text, pr.title, pr.body, pr.category, pr.visibility, pr.tradition, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
 		FROM prayer_requests pr
 		INNER JOIN prayer_request_groups prg ON prg.prayer_request_id = pr.id
 		INNER JOIN group_memberships gm ON gm.group_id = prg.group_id
@@ -394,6 +415,7 @@ func (r *PostgresRepository) ListGroupsPrayerRequests(ctx context.Context, userI
 			AND gm.deleted_at IS NULL
 			AND pr.status = 'ACTIVE'
 			AND pr.deleted_at IS NULL
+			AND pr.tradition = (SELECT tradition FROM users WHERE id = $1 AND deleted_at IS NULL)
 		ORDER BY pr.created_at DESC
 		LIMIT $2 OFFSET $3
 	`, userID, limit, offset)
@@ -424,6 +446,7 @@ func (r *PostgresRepository) CountGroupsPrayerRequests(ctx context.Context, user
 			  AND gm.deleted_at IS NULL
 			  AND pr.status = 'ACTIVE'
 			  AND pr.deleted_at IS NULL
+			  AND pr.tradition = (SELECT tradition FROM users WHERE id = $1 AND deleted_at IS NULL)
 		) AS group_requests
 	`, userID).Scan(&total)
 	return total, err
@@ -436,12 +459,13 @@ func (r *PostgresRepository) ListFriendsPrayerRequests(ctx context.Context, user
 			FROM friendships
 			WHERE status = 'ACCEPTED' AND (user_id = $1 OR friend_user_id = $1)
 		)
-		SELECT pr.id::text, pr.author_id::text, pr.title, pr.body, pr.category, pr.visibility, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
+		SELECT pr.id::text, pr.author_id::text, pr.title, pr.body, pr.category, pr.visibility, pr.tradition, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
 		FROM prayer_requests pr
 		INNER JOIN friend_ids f ON f.friend_id = pr.author_id
 		WHERE pr.visibility = 'PUBLIC'
 			AND pr.status = 'ACTIVE'
 			AND pr.deleted_at IS NULL
+			AND pr.tradition = (SELECT tradition FROM users WHERE id = $1 AND deleted_at IS NULL)
 		ORDER BY pr.created_at DESC
 		LIMIT $2 OFFSET $3
 	`, userID, limit, offset)
@@ -473,36 +497,42 @@ func (r *PostgresRepository) CountFriendsPrayerRequests(ctx context.Context, use
 		WHERE pr.visibility = 'PUBLIC'
 		  AND pr.status = 'ACTIVE'
 		  AND pr.deleted_at IS NULL
+		  AND pr.tradition = (SELECT tradition FROM users WHERE id = $1 AND deleted_at IS NULL)
 	`, userID).Scan(&total)
 	return total, err
 }
 
 func (r *PostgresRepository) ListHomePrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
 	rows, err := r.db.Query(ctx, `
-		WITH friend_ids AS (
+		WITH viewer AS (
+			SELECT tradition FROM users WHERE id = $1 AND deleted_at IS NULL
+		),
+		friend_ids AS (
 			SELECT CASE WHEN user_id = $1 THEN friend_user_id ELSE user_id END AS friend_id
 			FROM friendships
 			WHERE status = 'ACCEPTED' AND (user_id = $1 OR friend_user_id = $1)
 		),
 		home_requests AS (
-			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
+			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.tradition, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
 			FROM prayer_requests pr
 			WHERE pr.author_id = $1
 			  AND pr.status IN ('ACTIVE', 'PENDING_REVIEW')
 			  AND pr.deleted_at IS NULL
 			UNION
-			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
+			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.tradition, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
 			FROM prayer_requests pr
 			INNER JOIN friend_ids f ON f.friend_id = pr.author_id
 			WHERE pr.visibility = 'PUBLIC' AND pr.status = 'ACTIVE' AND pr.deleted_at IS NULL
+			  AND pr.tradition = (SELECT tradition FROM viewer)
 			UNION
-			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
+			SELECT pr.id, pr.author_id, pr.title, pr.body, pr.category, pr.visibility, pr.tradition, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
 			FROM prayer_requests pr
 			INNER JOIN prayer_request_groups prg ON prg.prayer_request_id = pr.id
 			INNER JOIN group_memberships gm ON gm.group_id = prg.group_id
 			WHERE gm.user_id = $1 AND gm.deleted_at IS NULL AND pr.status = 'ACTIVE' AND pr.deleted_at IS NULL
+			  AND pr.tradition = (SELECT tradition FROM viewer)
 		)
-		SELECT id::text, author_id::text, title, body, category, visibility, allow_anonymous, status, prayed_count, created_at, updated_at
+		SELECT id::text, author_id::text, title, body, category, visibility, tradition, allow_anonymous, status, prayed_count, created_at, updated_at
 		FROM home_requests
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
@@ -524,7 +554,10 @@ func (r *PostgresRepository) ListHomePrayerRequests(ctx context.Context, userID 
 func (r *PostgresRepository) CountHomePrayerRequests(ctx context.Context, userID string) (int64, error) {
 	var total int64
 	err := r.db.QueryRow(ctx, `
-		WITH friend_ids AS (
+		WITH viewer AS (
+			SELECT tradition FROM users WHERE id = $1 AND deleted_at IS NULL
+		),
+		friend_ids AS (
 			SELECT CASE WHEN user_id = $1 THEN friend_user_id ELSE user_id END AS friend_id
 			FROM friendships
 			WHERE status = 'ACCEPTED' AND (user_id = $1 OR friend_user_id = $1)
@@ -540,12 +573,14 @@ func (r *PostgresRepository) CountHomePrayerRequests(ctx context.Context, userID
 			FROM prayer_requests pr
 			INNER JOIN friend_ids f ON f.friend_id = pr.author_id
 			WHERE pr.visibility = 'PUBLIC' AND pr.status = 'ACTIVE' AND pr.deleted_at IS NULL
+			  AND pr.tradition = (SELECT tradition FROM viewer)
 			UNION
 			SELECT pr.id
 			FROM prayer_requests pr
 			INNER JOIN prayer_request_groups prg ON prg.prayer_request_id = pr.id
 			INNER JOIN group_memberships gm ON gm.group_id = prg.group_id
 			WHERE gm.user_id = $1 AND gm.deleted_at IS NULL AND pr.status = 'ACTIVE' AND pr.deleted_at IS NULL
+			  AND pr.tradition = (SELECT tradition FROM viewer)
 		)
 		SELECT COUNT(*)::bigint
 		FROM home_requests
@@ -773,7 +808,7 @@ func scanPrayerRequests(rows pgx.Rows) ([]models.PrayerRequest, error) {
 	items := make([]models.PrayerRequest, 0)
 	for rows.Next() {
 		var pr models.PrayerRequest
-		err := rows.Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
+		err := rows.Scan(&pr.ID, &pr.AuthorID, &pr.Title, &pr.Body, &pr.Category, &pr.Visibility, &pr.Tradition, &pr.AllowAnonymous, &pr.Status, &pr.PrayedCount, &pr.CreatedAt, &pr.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

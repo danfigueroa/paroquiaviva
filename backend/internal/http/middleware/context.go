@@ -10,6 +10,7 @@ const (
 	ContextKeyUserEmail   contextKey = "userEmail"
 	ContextKeyUsername    contextKey = "username"
 	ContextKeyDisplayName contextKey = "displayName"
+	ContextKeyTradition   contextKey = "tradition"
 )
 
 func SetContextValue[T any](ctx context.Context, key contextKey, value T) context.Context {
