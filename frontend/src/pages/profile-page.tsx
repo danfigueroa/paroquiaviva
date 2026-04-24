@@ -1,27 +1,49 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageShell } from '@/components/page-shell'
 import { api } from '@/lib/api'
 import { Input } from '@/components/input'
 import { Button } from '@/components/button'
+import { Tradition, traditionOptions } from '@/lib/traditions'
 
 type Profile = {
   id: string
   username: string
   displayName: string
+  tradition: Tradition
 }
 
 export function ProfilePage() {
+  const queryClient = useQueryClient()
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
+  const [traditionStatus, setTraditionStatus] = useState('')
 
   const profile = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
       const res = await api.get<Profile>('/profile')
       return res.data
+    }
+  })
+
+  const traditionMutation = useMutation({
+    mutationFn: async (tradition: Tradition) => {
+      const res = await api.patch<Profile>('/profile/tradition', { tradition })
+      return res.data
+    },
+    onSuccess: async () => {
+      setTraditionStatus('Tradição atualizada. Seu feed foi ajustado.')
+      await Promise.all([
+        profile.refetch(),
+        queryClient.invalidateQueries({ queryKey: ['profile', 'feed'] }),
+        queryClient.invalidateQueries({ queryKey: ['feed'] })
+      ])
+    },
+    onError: () => {
+      setTraditionStatus('Não foi possível atualizar a tradição.')
     }
   })
 
@@ -105,6 +127,45 @@ export function ProfilePage() {
             </Button>
           </div>
         </form>
+      </section>
+
+      <section className="pv-panel mt-5 rounded-3xl p-6 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Tradição</p>
+        <h2 className="pv-title mt-2 text-xl font-bold text-secondary sm:text-2xl">Minha tradição</h2>
+        <p className="pv-muted mt-2 text-sm">
+          Isso define as ações de oração disponíveis e o feed que você vê. Ao trocar, você passa a ver apenas pedidos da nova tradição.
+        </p>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {traditionOptions.map((option) => {
+            const active = profile.data?.tradition === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                disabled={traditionMutation.isPending || active}
+                onClick={() => {
+                  setTraditionStatus('')
+                  traditionMutation.mutate(option.value)
+                }}
+                className={`flex items-start gap-3 rounded-2xl border px-4 py-4 text-left transition ${active ? 'border-primary bg-primary/10 shadow-[0_10px_24px_-16px_var(--fx-ring)]' : 'border-primary bg-panel hover:bg-primary/5'} disabled:cursor-default`}
+                aria-pressed={active}
+              >
+                <span className="text-2xl leading-none" aria-hidden>{option.emoji}</span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-secondary'}`}>
+                    {option.label}{active ? ' — atual' : ''}
+                  </span>
+                  <span className="block text-[12px] leading-snug text-primary/80">{option.description}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {traditionStatus && (
+          <p className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{traditionStatus}</p>
+        )}
       </section>
     </PageShell>
   )
