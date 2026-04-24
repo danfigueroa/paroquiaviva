@@ -5,6 +5,7 @@ import { Button } from '@/components/button'
 import { getSupabaseClient } from '@/lib/supabase'
 import { useSessionStore } from '@/state/session-store'
 import { api } from '@/lib/api'
+import { Tradition, traditionOptions } from '@/lib/traditions'
 
 type AuthMode = 'signin' | 'signup'
 
@@ -17,6 +18,7 @@ export function AuthPage() {
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
+  const [tradition, setTradition] = useState<Tradition>('CATHOLIC')
   const [mode, setMode] = useState<AuthMode>('signin')
   const [isLoading, setIsLoading] = useState(false)
   const [info, setInfo] = useState('')
@@ -83,7 +85,8 @@ export function AuthPage() {
           options: {
             data: {
               username: normalizedUsername,
-              display_name: normalizedDisplayName
+              display_name: normalizedDisplayName,
+              tradition
             }
           }
         })
@@ -180,7 +183,7 @@ export function AuthPage() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Paróquia Viva</p>
           <h1 className="pv-title mt-5 text-3xl font-bold leading-[1.08] text-secondary sm:text-4xl lg:text-[46px]">Conecte sua comunidade em uma rede de oração viva.</h1>
-          <p className="pv-muted mt-5 max-w-md text-base leading-relaxed">Compartilhe intenções, acompanhe pedidos de amigos e grupos, e fortaleça os laços da sua paróquia em um ambiente acolhedor.</p>
+          <p className="pv-muted mt-5 max-w-md text-base leading-relaxed">Compartilhe intenções, acompanhe pedidos de amigos e grupos e fortaleça sua comunidade de fé — católica ou evangélica — em um ambiente acolhedor.</p>
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -225,6 +228,29 @@ export function AuthPage() {
             <>
               <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Nome de exibição" />
               <Input value={username} onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))} placeholder="@username único" />
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">Tradição</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {traditionOptions.map((option) => {
+                    const active = tradition === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setTradition(option.value)}
+                        className={`flex items-start gap-3 rounded-2xl border px-3 py-3 text-left transition ${active ? 'border-primary bg-primary/10 shadow-[0_10px_24px_-16px_var(--fx-ring)]' : 'border-primary bg-panel hover:bg-primary/5'}`}
+                        aria-pressed={active}
+                      >
+                        <span className="text-xl leading-none" aria-hidden>{option.emoji}</span>
+                        <span className="min-w-0">
+                          <span className={`block text-sm font-semibold ${active ? 'text-primary' : 'text-secondary'}`}>{option.label}</span>
+                          <span className="block text-[11px] leading-snug text-primary/80">{option.description}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </>
           )}
           <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Seu e-mail" type="email" />

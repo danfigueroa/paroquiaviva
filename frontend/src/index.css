@@ -150,8 +150,8 @@ a {
     box-shadow: 0 0 0 rgba(var(--fx-rgb), 0);
   }
   40% {
-    transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 0 0 8px rgba(var(--fx-rgb), 0.18);
+    transform: translateY(-4px) scale(1.12);
+    box-shadow: 0 0 0 12px rgba(var(--fx-rgb), 0.24);
   }
   100% {
     transform: translateY(0) scale(1);
@@ -175,7 +175,7 @@ a {
 }
 
 .pv-prayer-chip-hit > .pv-chip {
-  animation: prayerPop 560ms ease;
+  animation: prayerPop 760ms cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
 .pv-card-hit {
@@ -200,42 +200,124 @@ a {
 @keyframes prayerFxFloat {
   0% {
     opacity: 0;
-    transform: translate(-50%, 10px) scale(0.7);
+    transform: translate(-50%, 14px) scale(0.72);
   }
   25% {
     opacity: 1;
-    transform: translate(-50%, -2px) scale(1);
+    transform: translate(-50%, -8px) scale(1.24);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -26px) scale(1.08);
+    transform: translate(-50%, -44px) scale(1.34);
   }
 }
 
 @keyframes prayerFxRing {
   0% {
-    opacity: 0.7;
-    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.78;
+    transform: translate(-50%, -50%) scale(0.55);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.45);
+    transform: translate(-50%, -50%) scale(2.15);
   }
 }
 
 @keyframes prayerFxSpark {
   0% {
-    opacity: 0.95;
-    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.55);
   }
   100% {
     opacity: 0;
-    transform: var(--spark-transform) scale(1);
+    transform: var(--spark-transform) scale(1.4);
   }
 }
 
 .pv-count-hit {
   animation: prayerCountPulse 520ms ease;
+}
+
+@keyframes pvShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.pv-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--panel-rgb), 0.35) 0%,
+    rgba(var(--primary-rgb), 0.18) 50%,
+    rgba(var(--panel-rgb), 0.35) 100%
+  );
+  background-size: 200% 100%;
+  animation: pvShimmer 1.4s linear infinite;
+}
+
+.pv-feed-header {
+  background: rgba(var(--panel-rgb), 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
+  backdrop-filter: saturate(180%) blur(10px);
+}
+
+.pv-feed-row {
+  transition: background-color 160ms ease;
+  cursor: default;
+}
+
+.pv-feed-row:hover {
+  background-color: rgba(var(--primary-rgb), 0.06);
+}
+
+.pv-feed-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pv-tab-underline {
+  position: relative;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  white-space: nowrap;
+}
+
+.pv-tab-underline:hover {
+  color: var(--primary);
+  background-color: rgba(var(--primary-rgb), 0.06);
+}
+
+.pv-tab-underline-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 700;
+}
+
+.pv-compose-box {
+  transition: background-color 160ms ease;
+  color: var(--text-muted);
+}
+
+.pv-compose-box:hover {
+  background-color: rgba(var(--primary-rgb), 0.05);
+}
+
+.pv-prayer-fx {
+  left: 50%;
+  top: -6px;
 }
 
 .pv-prayer-fx {
@@ -248,41 +330,44 @@ a {
 
 .pv-prayer-fx-emoji {
   display: block;
-  font-size: 16px;
+  font-size: 22px;
   line-height: 1;
-  animation: prayerFxFloat 820ms ease forwards;
+  filter: drop-shadow(0 8px 12px rgba(var(--fx-rgb), 0.35));
+  animation: prayerFxFloat 980ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
 }
 
 .pv-prayer-fx-ring {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 26px;
-  height: 26px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-  border: 1.5px solid var(--fx-ring);
-  animation: prayerFxRing 650ms ease forwards;
+  border: 2px solid var(--fx-ring);
+  box-shadow: 0 0 0 2px rgba(var(--fx-rgb), 0.12);
+  animation: prayerFxRing 820ms ease forwards;
 }
 
 .pv-prayer-fx-spark {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: var(--primary);
-  animation: prayerFxSpark 640ms ease forwards;
+  box-shadow: 0 0 10px rgba(var(--fx-rgb), 0.45);
+  animation: prayerFxSpark 820ms ease forwards;
 }
 
 .pv-prayer-fx-spark-a {
-  --spark-transform: translate(-17px, -17px);
+  --spark-transform: translate(-26px, -26px);
 }
 
 .pv-prayer-fx-spark-b {
-  --spark-transform: translate(17px, -15px);
+  --spark-transform: translate(26px, -22px);
 }
 
 .pv-prayer-fx-spark-c {
-  --spark-transform: translate(1px, -24px);
+  --spark-transform: translate(2px, -34px);
 }
