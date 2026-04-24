@@ -1,28 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import { PageShell } from '@/components/page-shell'
 import { api } from '@/lib/api'
-import { Button } from '@/components/button'
+import { FeedCard, type FeedCardItem } from '@/components/feed-card'
+import { FeedSkeleton } from '@/components/feed-skeleton'
+import { prayerActionsFor, type Tradition } from '@/lib/traditions'
 
-type FeedItem = {
-  id: string
-  authorId: string
-  authorUsername?: string
-  authorDisplayName?: string
-  title: string
-  body: string
-  category: string
-  visibility: 'PUBLIC' | 'GROUP_ONLY' | 'PRIVATE'
-  groupIds?: string[]
-  groupNames?: string[]
-  createdAt: string
-  prayedCount: number
-  prayerTypeCounts?: Record<string, number>
-}
+type FeedItem = FeedCardItem
 
 type FeedScope = 'home' | 'public' | 'groups' | 'friends'
-type ProfileMini = { id: string }
+type ProfileMini = { id: string; displayName?: string; username?: string; tradition?: Tradition }
 type GroupLite = { id: string; name: string }
 type FeedPagination = { page: number; pageSize: number; total: number; totalPages: number }
 type FeedResponse = { items: FeedItem[]; pagination: FeedPagination }
@@ -34,14 +22,6 @@ const tabs: Array<{ scope: FeedScope; label: string; endpoint: string; requiresA
   { scope: 'public', label: 'Público', endpoint: '/feed/public', requiresAuth: false }
 ]
 
-const prayerActions = [
-  { type: 'HAIL_MARY', emoji: '🙏', label: 'Ave Maria' },
-  { type: 'OUR_FATHER', emoji: '✝️', label: 'Pai Nosso' },
-  { type: 'GLORY_BE', emoji: '✨', label: 'Glória' },
-  { type: 'ROSARY_DECADE', emoji: '📿', label: 'Terço' },
-  { type: 'ROSARY_FULL', emoji: '🕊️', label: 'Rosário' }
-]
-
 const categoryLabel: Record<string, string> = {
   HEALTH: 'Saúde',
   FAMILY: 'Família',
@@ -49,12 +29,6 @@ const categoryLabel: Record<string, string> = {
   GRIEF: 'Luto',
   THANKSGIVING: 'Ação de graças',
   OTHER: 'Outros'
-}
-
-const visibilityLabel: Record<FeedItem['visibility'], string> = {
-  PUBLIC: 'Público',
-  GROUP_ONLY: 'Grupo',
-  PRIVATE: 'Só amigos'
 }
 
 const feedPageSize = 10
@@ -75,6 +49,7 @@ function formatPostDate(value: string) {
 
 export function FeedPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [lastPrayerHit, setLastPrayerHit] = useState<{ requestID: string; actionType: string; fxID: number } | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const rawScope = searchParams.get('scope') as FeedScope | null
@@ -110,8 +85,35 @@ export function FeedPage() {
     mutationFn: async ({ requestID, actionType }: { requestID: string; actionType: string }) => {
       await api.post(`/requests/${requestID}/pray`, { actionType })
     },
-    onSuccess: async (_data, variables) => {
-      setLastPrayerHit({ requestID: variables.requestID, actionType: variables.actionType, fxID: Date.now() })
+    onMutate: async ({ requestID, actionType }) => {
+      await queryClient.cancelQueries({ queryKey: ['feed', scope, page] })
+      const previous = queryClient.getQueryData<FeedResponse>(['feed', scope, page])
+      if (previous) {
+        queryClient.setQueryData<FeedResponse>(['feed', scope, page], {
+          ...previous,
+          items: previous.items.map((it) =>
+            it.id === requestID
+              ? {
+                  ...it,
+                  prayedCount: it.prayedCount + 1,
+                  prayerTypeCounts: {
+                    ...(it.prayerTypeCounts ?? {}),
+                    [actionType]: (it.prayerTypeCounts?.[actionType] ?? 0) + 1
+                  }
+                }
+              : it
+          )
+        })
+      }
+      setLastPrayerHit({ requestID, actionType, fxID: Date.now() })
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(['feed', scope, page], ctx.previous)
+      }
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ['feed'] })
     }
   })
@@ -132,10 +134,17 @@ export function FeedPage() {
     return map
   }, [groupsLookupQuery.data])
 
+  const prayerActions = useMemo(
+    () => prayerActionsFor(profileQuery.data?.tradition ?? 'CATHOLIC'),
+    [profileQuery.data?.tradition]
+  )
+
   const feedData = query.data
   const items = feedData?.items ?? []
   const totalPages = Math.max(feedData?.pagination?.totalPages ?? 1, 1)
   const isUnauthorized = (query.error as any)?.response?.status === 401
+  const showSkeleton = query.isLoading && !feedData
+  const viewerInitial = (profileQuery.data?.displayName?.[0] || profileQuery.data?.username?.[0] || 'V').toUpperCase()
 
   useEffect(() => {
     if (!lastPrayerHit) {
@@ -193,183 +202,138 @@ export function FeedPage() {
   const paginationEnd = Math.min(totalPages, paginationStart + 4)
   const pageNumbers = Array.from({ length: paginationEnd - paginationStart + 1 }, (_, idx) => paginationStart + idx)
 
+  const handlePray = useCallback(
+    (requestID: string, actionType: string) => {
+      prayMutation.mutate({ requestID, actionType })
+    },
+    [prayMutation]
+  )
+
   return (
     <PageShell>
-      <section className="pv-panel rounded-3xl p-6 sm:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Feed social</p>
-            <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Intenções e pedidos de oração</h1>
-            <p className="pv-muted mt-2 text-sm">O feed principal mistura amigos e grupos. Público é uma aba secundária para descoberta.</p>
+      <div className="pv-panel overflow-hidden rounded-3xl">
+        <header className="pv-feed-header sticky top-0 z-10 border-b border-primary/20 backdrop-blur">
+          <div className="flex items-end justify-between gap-3 px-5 pt-5">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Feed social</p>
+              <h1 className="pv-title mt-1 text-xl font-bold text-secondary sm:text-2xl">Intenções e pedidos de oração</h1>
+            </div>
+            {query.isFetching && !query.isLoading && (
+              <span className="mb-1 text-[11px] text-primary/70">Atualizando…</span>
+            )}
           </div>
-        </div>
+          <nav className="mt-3 flex overflow-x-auto px-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Escopo do feed">
+            {tabs.map((tab) => {
+              const active = tab.scope === scope
+              return (
+                <button
+                  key={tab.scope}
+                  type="button"
+                  onClick={() => changeScope(tab.scope)}
+                  className={`pv-tab-underline ${active ? 'pv-tab-underline-active' : ''}`}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
+          </nav>
+        </header>
 
-        <div className="mt-5 grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          {tabs.map((tab) => (
-            <button
-              key={tab.scope}
-              className={`w-full rounded-full px-2 py-2 text-center text-sm font-semibold sm:w-auto sm:px-4 ${tab.scope === scope ? 'pv-chip-active' : 'pv-chip text-primary'}`}
-              onClick={() => changeScope(tab.scope)}
-              type="button"
-            >
-              {tab.label}
-            </button>
-          ))}
-          <Link className="col-span-4 w-full sm:ml-auto sm:w-auto" to="/requests/new">
-            <Button className="w-full sm:w-auto">Novo pedido</Button>
-          </Link>
-        </div>
-      </section>
-
-      <section className="mt-5 w-full space-y-3">
-        {query.isLoading && <div className="pv-panel rounded-2xl p-4 text-sm pv-muted">Carregando intenções...</div>}
-        {query.isFetching && !query.isLoading && <div className="text-xs text-primary">Atualizando feed...</div>}
-
-        {isUnauthorized && activeTab.requiresAuth && (
-          <div className="pv-panel rounded-2xl p-4 text-sm">
-            <p className="text-secondary">Você precisa entrar para visualizar o feed de {activeTab.label.toLowerCase()}.</p>
-          </div>
+        {profileQuery.data?.id && (
+          <button
+            type="button"
+            onClick={() => navigate('/requests/new')}
+            className="pv-compose-box flex w-full items-center gap-3 border-b border-primary/20 px-4 py-3.5 text-left sm:px-5"
+          >
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary bg-bg text-sm font-bold text-primary">
+              {viewerInitial}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[15px] text-muted">
+              Compartilhe uma intenção para a comunidade orar com você…
+            </span>
+            <span className="hidden shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-onPrimary sm:inline-block">
+              Postar
+            </span>
+          </button>
         )}
 
-        {!query.isLoading && !isUnauthorized && items.length === 0 && (
-          <div className="pv-panel rounded-2xl p-4 text-sm pv-muted">Ainda não existem pedidos neste feed.</div>
-        )}
+        <div className="divide-y divide-primary/20">
+          {showSkeleton && <FeedSkeleton count={4} />}
 
-        <div className="space-y-3">
+          {isUnauthorized && activeTab.requiresAuth && (
+            <div className="px-5 py-6 text-sm text-secondary">
+              Você precisa entrar para visualizar o feed de {activeTab.label.toLowerCase()}.
+            </div>
+          )}
+
+          {!query.isLoading && !isUnauthorized && items.length === 0 && (
+            <div className="px-5 py-10 text-center">
+              <p className="text-3xl" aria-hidden>🕊️</p>
+              <p className="mt-2 text-sm font-semibold text-secondary">Ainda não há pedidos neste feed.</p>
+              <p className="pv-muted mt-1 text-xs">Seja o primeiro a compartilhar uma intenção.</p>
+              <Link
+                to="/requests/new"
+                className="mt-4 inline-flex items-center rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-onPrimary"
+              >
+                Criar pedido
+              </Link>
+            </div>
+          )}
+
           {items.map((item) => (
-            <article key={item.id} className={`pv-panel rounded-2xl p-5 ${lastPrayerHit?.requestID === item.id ? 'pv-card-hit' : ''}`}>
-              {(() => {
-                const primaryGroupName = item.groupNames?.[0] || (item.groupIds?.[0] ? groupNameById.get(item.groupIds[0]) : undefined)
-                const extraGroupsCount = Math.max((item.groupNames?.length ?? 0) - 1, 0)
-                if (item.visibility !== 'GROUP_ONLY') {
-                  return null
-                }
-                return (
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary bg-panel px-3 py-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">Grupo</span>
-                    <span className="text-xs font-semibold text-secondary">{primaryGroupName || 'Grupo não identificado'}</span>
-                    {extraGroupsCount > 0 && (
-                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-onPrimary">+{extraGroupsCount}</span>
-                    )}
-                  </div>
-                )
-              })()}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 items-start gap-4">
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-bg text-lg font-bold text-primary shadow-sm">
-                    {(item.authorDisplayName?.[0] || item.authorUsername?.[0] || 'U').toUpperCase()}
-                  </span>
-                  <div className="min-w-0">
-                    <Link className="block break-words text-3xl font-semibold leading-tight text-secondary hover:text-primary sm:text-[34px]" to={`/requests/${item.id}`}>{item.title}</Link>
-                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className="truncate text-sm font-semibold text-secondary">{item.authorDisplayName || 'Membro'}</p>
-                      <p className="truncate text-xs text-primary">@{item.authorUsername || 'usuario'}</p>
-                      <span className="text-xs text-primary">•</span>
-                      <p className="truncate text-xs text-primary">{formatPostDate(item.createdAt)}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 self-start sm:shrink-0 sm:self-auto sm:justify-end">
-                  <span className="rounded-xl border border-primary bg-primary px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-onPrimary">
-                    {categoryLabel[item.category] || item.category}
-                  </span>
-                  <span className="rounded-xl border border-primary bg-panel px-2.5 py-1 text-[11px] font-bold tracking-[0.04em] text-primary">
-                    {visibilityLabel[item.visibility]}
-                  </span>
-                  {item.groupNames?.map((groupName) => (
-                    <span key={`${item.id}-${groupName}`} className="inline-flex items-center gap-1 rounded-xl border border-primary bg-panel px-2.5 py-1 text-[11px] font-semibold tracking-[0.02em] text-primary">
-                      <span aria-hidden>👥</span>
-                      <span>{groupName}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="sm:pl-[72px]">
-                <p className="pv-muted mt-2 text-base leading-relaxed">{item.body}</p>
-              </div>
-
-              <div className="mt-5 flex items-center justify-between border-t border-primary pt-4">
-                <p className={`text-xs text-primary ${lastPrayerHit?.requestID === item.id ? 'pv-count-hit' : ''}`}>Orações registradas: {item.prayedCount}</p>
-                {profileQuery.data?.id === item.authorId && (
-                  <Link className="text-xs text-primary hover:text-primary" to={`/requests/${item.id}`}>Editar pedido</Link>
-                )}
-              </div>
-              <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
-                {prayerActions.map((action) => (
-                  <span
-                    key={`${item.id}-${action.type}`}
-                    className={`${lastPrayerHit?.requestID === item.id && lastPrayerHit?.actionType === action.type ? 'pv-prayer-chip-hit' : ''} relative inline-flex w-[146px] rounded-full sm:w-auto`}
-                  >
-                    {lastPrayerHit?.requestID === item.id && lastPrayerHit?.actionType === action.type && (
-                      <span className="pv-prayer-fx" key={`${item.id}-${action.type}-${lastPrayerHit.fxID}`}>
-                        <span className="pv-prayer-fx-ring" />
-                        <span className="pv-prayer-fx-emoji">{action.emoji}</span>
-                        <span className="pv-prayer-fx-spark pv-prayer-fx-spark-a" />
-                        <span className="pv-prayer-fx-spark pv-prayer-fx-spark-b" />
-                        <span className="pv-prayer-fx-spark pv-prayer-fx-spark-c" />
-                      </span>
-                    )}
-                    <button
-                      className="pv-chip w-full whitespace-nowrap rounded-full px-3 py-1 text-xs sm:w-auto"
-                      disabled={prayMutation.isPending}
-                      onClick={() => prayMutation.mutate({ requestID: item.id, actionType: action.type })}
-                      type="button"
-                    >
-                      {action.emoji} {action.label} ({item.prayerTypeCounts?.[action.type] ?? 0})
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </article>
+            <FeedCard
+              key={item.id}
+              item={item}
+              viewerId={profileQuery.data?.id}
+              prayerActions={prayerActions}
+              onPray={handlePray}
+              isPrayPending={prayMutation.isPending}
+              lastPrayerHit={lastPrayerHit}
+              groupNameById={groupNameById}
+              categoryLabel={categoryLabel}
+              formatDate={formatPostDate}
+            />
           ))}
         </div>
 
         {!isUnauthorized && !query.isLoading && items.length > 0 && (
-          <div className="mt-2 flex flex-col gap-3 rounded-2xl border border-primary bg-panel/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-primary/20 bg-panel/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <p className="text-xs text-primary">Página {page} de {totalPages}</p>
             <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex min-w-max items-center gap-2">
-              <button
-                className="pv-chip rounded-full px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={page <= 1 || query.isFetching}
-                onClick={() => goToPage(1)}
-                type="button"
-              >
-                Primeira
-              </button>
-              <button
-                className="pv-chip rounded-full px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={page <= 1 || query.isFetching}
-                onClick={() => goToPage(page - 1)}
-                type="button"
-              >
-                Anterior
-              </button>
-              {pageNumbers.map((pageNumber) => (
+              <div className="flex min-w-max items-center gap-1.5">
                 <button
-                  key={pageNumber}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${pageNumber === page ? 'pv-chip-active' : 'pv-chip'}`}
-                  disabled={query.isFetching}
-                  onClick={() => goToPage(pageNumber)}
+                  className="rounded-full border border-primary/40 px-3 py-1 text-xs text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={page <= 1 || query.isFetching}
+                  onClick={() => goToPage(page - 1)}
                   type="button"
                 >
-                  {pageNumber}
+                  ← Anterior
                 </button>
-              ))}
-              <button
-                className="pv-chip rounded-full px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={page >= totalPages || query.isFetching}
-                onClick={() => goToPage(page + 1)}
-                type="button"
-              >
-                Próxima
-              </button>
-            </div>
+                {pageNumbers.map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${pageNumber === page ? 'bg-primary text-onPrimary' : 'border border-primary/40 text-primary hover:bg-primary/10'}`}
+                    disabled={query.isFetching}
+                    onClick={() => goToPage(pageNumber)}
+                    type="button"
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+                <button
+                  className="rounded-full border border-primary/40 px-3 py-1 text-xs text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={page >= totalPages || query.isFetching}
+                  onClick={() => goToPage(page + 1)}
+                  type="button"
+                >
+                  Próxima →
+                </button>
+              </div>
             </div>
           </div>
         )}
-      </section>
+      </div>
     </PageShell>
   )
 }
