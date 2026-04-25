@@ -261,9 +261,7 @@ a {
 }
 
 .pv-feed-header {
-  background: rgba(var(--panel-rgb), 0.82);
-  -webkit-backdrop-filter: saturate(180%) blur(10px);
-  backdrop-filter: saturate(180%) blur(10px);
+  background: rgba(var(--panel-rgb), 0.6);
 }
 
 .pv-feed-row {
@@ -309,10 +307,30 @@ a {
 .pv-compose-box {
   transition: background-color 160ms ease;
   color: var(--text-muted);
+  background: linear-gradient(
+    180deg,
+    rgba(var(--primary-rgb), 0.05) 0%,
+    rgba(var(--panel-rgb), 0) 100%
+  );
 }
 
 .pv-compose-box:hover {
-  background-color: rgba(var(--primary-rgb), 0.05);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(var(--primary-rgb), 0.12) 0%,
+      rgba(var(--primary-rgb), 0.04) 100%
+    );
+}
+
+.pv-compose-cta {
+  box-shadow: 0 12px 24px -10px var(--fx-ring);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.pv-compose-box:hover .pv-compose-cta {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px -10px var(--fx-ring);
 }
 
 .pv-prayer-fx {

@@ -212,7 +212,7 @@ export function FeedPage() {
   return (
     <PageShell>
       <div className="pv-panel overflow-hidden rounded-3xl">
-        <header className="pv-feed-header sticky top-0 z-10 border-b border-primary/20 backdrop-blur">
+        <header className="pv-feed-header border-b border-primary/20">
           <div className="flex items-end justify-between gap-3 px-5 pt-5">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Feed social</p>
@@ -244,16 +244,25 @@ export function FeedPage() {
           <button
             type="button"
             onClick={() => navigate('/requests/new')}
-            className="pv-compose-box flex w-full items-center gap-3 border-b border-primary/20 px-4 py-3.5 text-left sm:px-5"
+            className="pv-compose-box group flex w-full items-start gap-3 border-b border-primary/20 px-4 py-5 text-left sm:gap-4 sm:px-6 sm:py-6"
           >
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary bg-bg text-sm font-bold text-primary">
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-bg text-base font-bold text-primary shadow-sm">
               {viewerInitial}
             </span>
-            <span className="min-w-0 flex-1 truncate text-[15px] text-muted">
-              Compartilhe uma intenção para a comunidade orar com você…
-            </span>
-            <span className="hidden shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-onPrimary sm:inline-block">
-              Postar
+            <span className="min-w-0 flex-1">
+              <span className="block text-lg font-medium text-secondary/80 transition group-hover:text-primary sm:text-xl">
+                Compartilhe uma intenção…
+              </span>
+              <span className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-primary/15 pt-3">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-primary/70">
+                  <span aria-hidden>🙏</span>
+                  <span>Pedido de oração</span>
+                </span>
+                <span className="pv-compose-cta inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-sm font-bold text-onPrimary">
+                  <span aria-hidden>✍️</span>
+                  <span>Postar pedido</span>
+                </span>
+              </span>
             </span>
           </button>
         )}
