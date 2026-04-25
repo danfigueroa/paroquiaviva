@@ -1,206 +1,183 @@
-# Deploy — Paróquia Viva
+# Deploy — Paróquia Viva (Vercel multi-service)
 
 Stack de produção:
 
 ```
-Vercel (Vite SPA) ──HTTPS──▶ Fly.io (Go/chi) ──pgx──▶ Supabase (Postgres + Auth)
+Vercel Project (mono)
+├── frontend  →  routePrefix "/"           (Vite SPA)
+└── backend   →  routePrefix "/_/backend"  (Go/chi Web Service)
+                       │
+                       └── pgx ──▶  Supabase (Postgres + Auth)
 ```
 
-O **banco continua no Supabase**. Frontend e backend só consomem-no via env vars — nada é "empacotado" junto.
+Tudo é deployado num único projeto Vercel usando a feature **experimentalServices**. Frontend e backend ficam no mesmo domínio (zero CORS, mesma origem). O **banco continua no Supabase** — os serviços só consomem via env vars.
+
+> **Aviso:** `experimentalServices` é marcado como experimental pela Vercel. Funciona, mas pode mudar sem aviso. Se o deploy quebrar por mudança da feature, o plano B é separar — ver seção "Plano B" no final.
 
 ---
 
-## 0. Pré-requisitos (uma única vez)
+## 0. Pré-requisitos
 
-```bash
-# Fly.io CLI
-brew install flyctl
-fly auth signup        # ou: fly auth login
-
-# Vercel CLI
-npm i -g vercel
-vercel login
-
-# golang-migrate (já instalado, usado para rodar SQLs no Supabase)
-brew install golang-migrate
-```
-
-Tenha à mão, no dashboard do Supabase (Project Settings → Database e API):
-
-- `Project URL` → `https://<ref>.supabase.co`
-- `anon public key`
-- `Connection string (Transaction pooler — porta 6543)` → será o `DATABASE_URL` em produção
-- `Connection string (Direct — porta 5432)` → só para rodar migrações
-- `JWT Secret` (Project Settings → API → JWT Settings) → não é necessário se você usa JWKS
+- Conta Vercel + CLI (`npm i -g vercel && vercel login`). Opcional — o fluxo via Git Import no dashboard também funciona.
+- Acesso ao Supabase com:
+  - `Project URL` (`https://<ref>.supabase.co`)
+  - `anon public key`
+  - `Connection string — Transaction pooler` (porta **6543**) → vira `DATABASE_URL` em produção
+  - `Connection string — Direct` (porta **5432**) → só para rodar migrações da sua máquina
+- Migrações já estão em v6 no Supabase (confirme com `migrate ... version`).
 
 ---
 
-## 1. Supabase — preparar para produção
+## 1. Supabase — ajustes de produção
+
+Pegue a URL Vercel final (ou um palpite, ex: `https://paroquiaviva.vercel.app`) e:
 
 1. **Auth → URL Configuration**
-   - `Site URL` = URL final do Vercel (ex.: `https://paroquia-viva.vercel.app`)
-   - `Redirect URLs` = adicione `https://paroquia-viva.vercel.app/auth` (e `http://localhost:5173/auth` para dev)
-   - Sem isso, magic link e reset de senha quebram em produção.
+   - `Site URL` = `https://paroquiaviva.vercel.app`
+   - `Redirect URLs` = `https://paroquiaviva.vercel.app/auth` (e `http://localhost:5173/auth` para dev)
+   - Sem isso, magic link e reset de senha falham.
 
-2. **Backups**: confirme política do plano. Free tier retém poucos dias — considere upgrade antes do lançamento público.
+2. **Backups**: confira a retenção do seu plano. Free tier é curto.
 
-3. **Migrações**: já estão na versão 6. Para confirmar:
-
+3. **Migrações**:
    ```bash
    cd backend
    migrate -path ./internal/db/migrations \
      -database "postgresql://postgres:<pwd>@db.<ref>.supabase.co:5432/postgres" \
-     version
+     version     # deve retornar 6
    ```
 
-   Use a string **direta** (porta 5432) para `migrate`, não o pooler.
+   Use a string **direta** (porta 5432). Não o pooler.
 
 ---
 
-## 2. Backend — Fly.io
+## 2. Vercel — deploy do monorepo
 
-### 2.1 Build local em Docker (opcional, mas recomendado antes do primeiro deploy)
+O repo já contém:
+- `vercel.json` na raiz com `experimentalServices`.
+- `frontend/vercel.json` (SPA rewrite + cache).
+- `backend/Dockerfile` (não usado pela Vercel, mas serve para testes locais e backup).
 
-```bash
-cd backend
-docker build -t parish-viva-api .
-docker run --rm -p 8080:8080 --env-file .env parish-viva-api
-# em outro terminal:
-curl http://localhost:8080/health   # esperado: {"status":"ok"}
-```
+### 2.1 Import do repo (primeira vez, via dashboard)
 
-### 2.2 Lançar app na Fly
+1. Vercel Dashboard → **Add New... → Project**.
+2. Import do GitHub `danfigueroa/paroquiaviva`.
+3. **Application Preset: Services** (a Vercel já detecta pelo `vercel.json` raiz).
+4. Confirme que a tela mostra dois services:
+   - `frontend` → `/` (Vite)
+   - `backend` → `/_/backend` (Go)
+5. Antes de clicar Deploy, abra **Environment Variables** e configure (passos 2.2 e 2.3 abaixo).
 
-```bash
-cd backend
-fly launch --no-deploy --copy-config --name parish-viva-api --region gru
-```
+### 2.2 Env vars do **frontend**
 
-- O `fly.toml` já existe; o flag `--copy-config` reutiliza ele.
-- Escolha um `app name` único globalmente (`parish-viva-api` provavelmente está livre — se não, troque).
-- Recuse Postgres/Redis quando perguntar (usaremos Supabase).
+| Key | Value |
+|---|---|
+| `VITE_API_BASE_URL` | `/_/backend/api/v1` |
+| `VITE_SUPABASE_URL` | `https://<ref>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | (Supabase → API → anon public) |
 
-### 2.3 Configurar secrets
+> Caminho relativo `/_/backend/api/v1` funciona porque frontend e backend são servidos pelo mesmo domínio. Se quiser deixar absoluto, troque para `https://<vercel-domain>/_/backend/api/v1` depois do primeiro deploy.
 
-```bash
-# usar a string do POOLER (porta 6543) — sobrevive a picos sem estourar conexões
-fly secrets set \
-  DATABASE_URL="postgresql://postgres.<ref>:<pwd>@aws-0-sa-east-1.pooler.supabase.com:6543/postgres" \
-  JWT_ISSUER="https://<ref>.supabase.co/auth/v1" \
-  JWKS_URL="https://<ref>.supabase.co/auth/v1/.well-known/jwks.json" \
-  CORS_ALLOWED_ORIGINS="https://paroquia-viva.vercel.app,http://localhost:5173"
-```
+### 2.3 Env vars do **backend**
 
-> Defina `CORS_ALLOWED_ORIGINS` agora com um placeholder; depois do deploy do frontend, atualize com o domínio Vercel real (`fly secrets set CORS_ALLOWED_ORIGINS="..."`).
+| Key | Value |
+|---|---|
+| `DATABASE_URL` | string do **pooler** do Supabase (porta **6543**, Transaction mode) |
+| `JWT_ISSUER` | `https://<ref>.supabase.co/auth/v1` |
+| `JWKS_URL` | `https://<ref>.supabase.co/auth/v1/.well-known/jwks.json` |
+| `CORS_ALLOWED_ORIGINS` | `https://<vercel-domain>` (defense-in-depth; mesma origem não exige, mas não atrapalha) |
+| `JWKS_CACHE_TTL` | `10m` |
+| `RATE_LIMIT_REQUESTS` | `120` |
+| `RATE_LIMIT_WINDOW` | `1m` |
+| `PRAYED_WINDOW_HOURS` | `12` |
+| `PRAYED_IP_BURST_PER_HOUR` | `200` |
+
+> **Não** defina `HTTP_ADDR` — o backend já cai para `:$PORT` (Vercel injeta `PORT` automaticamente em Web Services).
+
+> **Não** defina `VITE_*` no backend nem `DATABASE_URL` no frontend. Na tela de env var da Vercel, você consegue associar cada variável a um service específico (menu "Applies to" / "Services").
 
 ### 2.4 Deploy
 
+Clicar **Deploy**. O log mostra dois builds em paralelo (frontend Vite + backend Go). Primeiro deploy demora ~3-5min.
+
+Quando terminar, abrir a URL e fazer smoke:
+
 ```bash
-fly deploy
-fly logs                          # acompanhe — esperar "api_server_started"
-curl https://parish-viva-api.fly.dev/health
+# Health do backend (via proxy Vercel)
+curl https://<vercel-domain>/_/backend/health
+
+# Frontend
+open https://<vercel-domain>
 ```
 
-### 2.5 Comandos úteis
+### 2.5 Re-deploys e CLI
+
+Depois do primeiro deploy via dashboard, `git push` para `main` dispara deploy automático. Para usar CLI:
 
 ```bash
-fly status              # health, regions, machines
-fly logs                # streaming de logs
-fly ssh console         # entrar no container
-fly secrets list        # nomes dos secrets (sem valor)
-fly releases            # histórico
-fly deploy --image-label v1.0.1   # rollback: redeploy um image label antigo
-```
-
----
-
-## 3. Frontend — Vercel
-
-### 3.1 Primeiro deploy
-
-```bash
-cd frontend
-vercel
-```
-
-Responda às perguntas:
-
-- `Set up and deploy?` → **Y**
-- `Which scope?` → seu user/team
-- `Link to existing project?` → **N** (no primeiro deploy)
-- `Project name?` → `paroquia-viva` (ou outro)
-- `In which directory is your code located?` → `./`
-- O Vercel detecta Vite automaticamente; aceite os defaults (já reforçados pelo `vercel.json`).
-
-### 3.2 Configurar env vars
-
-```bash
-# faça uma vez por env (production, preview, development)
+# na raiz do repo
+vercel                 # preview
+vercel --prod          # produção
+vercel env ls          # listar env vars
 vercel env add VITE_API_BASE_URL production
-# valor: https://parish-viva-api.fly.dev/api/v1
-
-vercel env add VITE_SUPABASE_URL production
-# valor: https://<ref>.supabase.co
-
-vercel env add VITE_SUPABASE_ANON_KEY production
-# valor: <anon public key>
-```
-
-Repita para `preview` se quiser ambiente de preview funcional.
-
-### 3.3 Re-deploy com env aplicado
-
-```bash
-vercel --prod
-```
-
-URL final aparece no output. Copie-a.
-
-### 3.4 Atualizar CORS no backend com o domínio Vercel real
-
-```bash
-cd ../backend
-fly secrets set CORS_ALLOWED_ORIGINS="https://paroquia-viva.vercel.app,http://localhost:5173"
-# o fly deploy automaticamente reinicia as máquinas
+vercel logs            # logs em tempo real (incluem backend)
 ```
 
 ---
 
-## 4. Verificação E2E
+## 3. Smoke E2E
 
-1. Abra `https://paroquia-viva.vercel.app/auth`, crie conta nova (escolha tradição).
-2. Confirme e-mail (clica no link → deve cair em `/feed`).
-3. Crie um pedido em `/requests/new`, ore num pedido alheio, troque a tradição em `/profile`.
-4. Acompanhe `fly logs` durante a sessão — sem 5xx.
-5. Confirme reset de senha: `/auth` → "Redefinir senha" → e-mail → link redireciona corretamente.
-
----
-
-## 5. Rollback rápido
-
-**Backend**
-
-```bash
-fly releases             # lista versões
-fly releases rollback <release-id>
-```
-
-**Frontend**
-
-Vercel dashboard → Deployments → escolher versão anterior → "Promote to Production".
+1. Abrir URL final → landing.
+2. `/auth` → criar conta nova escolhendo tradição. Confirmar e-mail.
+3. `/feed` → ver feed vazio do usuário novo. Criar pedido em `/requests/new`.
+4. Em outra aba (user diferente): ver o pedido, orar por ele.
+5. Em `/profile`: trocar tradição, confirmar que feed esvazia/se atualiza.
+6. `vercel logs` em paralelo — sem 5xx.
 
 ---
 
-## 6. Custos esperados
+## 4. Rollback
 
-- **Supabase Free**: 500 MB DB, 1 GB storage, 50k MAU. Se passar, $25/mês para Pro.
-- **Fly.io**: 3 VMs `shared-cpu-1x/256MB` no plano hobbyist; nosso `min_machines_running = 0` deixa máquina dormir (cold start ~1-2s na primeira request).
-- **Vercel Hobby**: grátis para projetos pessoais (100 GB bandwidth/mês).
+Dashboard Vercel → **Deployments** → escolher versão anterior → "Promote to Production". Backend e frontend rebobinam juntos.
 
 ---
 
-## 7. Próximos passos sugeridos
+## 5. Custos esperados (Hobby tier)
 
-- Domínio próprio: `vercel domains add paroquiaviva.com.br` + apontar `app.paroquiaviva.com.br` para a Vercel; `api.paroquiaviva.com.br` (CNAME) para a Fly.
-- CI/CD: GitHub Actions já roda testes; adicionar `fly deploy --remote-only` em push para `main` e Vercel já faz deploy automático ao conectar o repo.
-- Observabilidade: `fly logs` está OK no início; depois plugar Logflare/Datadog. Sentry no frontend para erros JS.
+- **Vercel Hobby**: frontend grátis (100 GB bandwidth/mês). Web Services em `experimentalServices` usam o orçamento de Compute — confira o medidor em Usage. Para tráfego baixo-médio, deve ficar no free.
+- **Supabase Free**: 500 MB DB, 1 GB storage, 50k MAU.
+
+---
+
+## 6. Troubleshooting
+
+| Sintoma | Causa provável | Ação |
+|---|---|---|
+| `DATABASE_URL is required` no log do backend | Env var não setada, ou setada só no frontend | Verifique em Settings → Environment Variables que a var está associada ao service **backend** e ao ambiente **Production** |
+| 404 no `/_/backend/*` | `vercel.json` raiz não detectado | Confirmar que está na raiz do repo (não em `frontend/`) e que o redeploy foi pós-commit |
+| CORS error no console | `CORS_ALLOWED_ORIGINS` ≠ domínio real | Atualizar env var e redeploy |
+| 502 intermitente no backend | Cold start ou falha ao abrir pool pgx | Checar `DATABASE_URL` (deve ser o **pooler** 6543, não direto 5432 que estoura conexões) |
+| Auth redirect cai fora | Site/Redirect URL errada no Supabase | Ajustar em Auth → URL Configuration |
+| Backend quebra com erro de porta | `HTTP_ADDR` setado manualmente | Remover a env var; o código cai em `$PORT` automaticamente |
+
+Para logs do backend: `vercel logs --follow` e filtrar pela service `backend`.
+
+---
+
+## Plano B — Vercel só frontend, Fly.io no backend
+
+Se a feature experimental da Vercel der problema, segregar é simples:
+
+1. Apagar o `vercel.json` raiz (commit: `git rm vercel.json && git commit`).
+2. No dashboard Vercel → Settings → Root Directory → mudar para `frontend/`.
+3. `VITE_API_BASE_URL` passa a apontar para o domínio Fly: `https://parish-viva-api.fly.dev/api/v1`.
+4. Deploy do backend na Fly:
+   ```bash
+   cd backend
+   fly launch --no-deploy --copy-config --name parish-viva-api --region gru
+   fly secrets set DATABASE_URL=... JWT_ISSUER=... JWKS_URL=... CORS_ALLOWED_ORIGINS="https://<vercel-domain>"
+   fly deploy
+   ```
+5. Atualizar `CORS_ALLOWED_ORIGINS` com o domínio Vercel real.
+
+Os artefatos desse plano (`backend/Dockerfile`, `backend/fly.toml`) já estão no repo e continuam funcionando se precisar.

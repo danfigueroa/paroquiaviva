@@ -23,7 +23,7 @@ type Config struct {
 
 func Load() (Config, error) {
 	cfg := Config{
-		HTTPAddr:             envOrDefault("HTTP_ADDR", ":8080"),
+		HTTPAddr:             resolveHTTPAddr(),
 		DatabaseURL:          os.Getenv("DATABASE_URL"),
 		JWTIssuer:            os.Getenv("JWT_ISSUER"),
 		JWKSURL:              os.Getenv("JWKS_URL"),
@@ -44,6 +44,16 @@ func Load() (Config, error) {
 		return Config{}, errors.New("JWKS_URL is required")
 	}
 	return cfg, nil
+}
+
+func resolveHTTPAddr() string {
+	if addr := strings.TrimSpace(os.Getenv("HTTP_ADDR")); addr != "" {
+		return addr
+	}
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		return ":" + port
+	}
+	return ":8080"
 }
 
 func envOrDefault(key, value string) string {
