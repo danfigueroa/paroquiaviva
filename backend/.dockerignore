@@ -1,0 +1,17 @@
+.env
+.env.*
+*.log
+*.out
+.DS_Store
+.idea/
+.vscode/
+node_modules/
+dist/
+tmp/
+bin/
+out/
+coverage.out
+Dockerfile
+.dockerignore
+fly.toml
+README.md

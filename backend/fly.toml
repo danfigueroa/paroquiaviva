@@ -1,0 +1,32 @@
+# Fly.io config — adjust `app` to the unique name you picked with `fly launch`.
+app = "parish-viva-api"
+primary_region = "gru"
+
+[build]
+
+[env]
+  HTTP_ADDR = ":8080"
+  JWKS_CACHE_TTL = "10m"
+  RATE_LIMIT_REQUESTS = "120"
+  RATE_LIMIT_WINDOW = "1m"
+  PRAYED_WINDOW_HOURS = "12"
+  PRAYED_IP_BURST_PER_HOUR = "200"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
