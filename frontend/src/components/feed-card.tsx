@@ -119,7 +119,7 @@ function FeedCardComponent({
           <p className="pv-feed-body pv-muted mt-1 text-[15px] leading-relaxed">{item.body}</p>
         </Link>
 
-        <div className="mt-2.5 flex items-center gap-0.5 -ml-1.5 flex-wrap">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {prayerActions.map((action) => {
             const count = item.prayerTypeCounts?.[action.type] ?? 0
             const activeFx = isHit && lastPrayerHit?.actionType === action.type
@@ -141,12 +141,12 @@ function FeedCardComponent({
                   type="button"
                   disabled={isPrayPending}
                   onClick={() => onPray(item.id, action.type)}
-                  title={action.label}
                   aria-label={`${action.label} (${count})`}
-                  className="pv-action-btn inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted transition hover:bg-primary/10 hover:text-primary disabled:opacity-60"
+                  className="pv-action-btn inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-panel/50 px-2.5 py-1 text-xs font-medium text-muted transition hover:border-primary hover:bg-primary/10 hover:text-primary disabled:opacity-60"
                 >
                   <span aria-hidden>{action.emoji}</span>
-                  {count > 0 && <span className="tabular-nums">{count}</span>}
+                  <span>{action.label}</span>
+                  {count > 0 && <span className="tabular-nums text-primary">{count}</span>}
                 </button>
               </span>
             )
