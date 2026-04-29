@@ -152,10 +152,59 @@ type GroupSummary struct {
 	IsMember    bool            `json:"isMember"`
 }
 
+type GroupDetails struct {
+	Group
+	MemberCount    int64      `json:"memberCount"`
+	MyRole         *GroupRole `json:"myRole,omitempty"`
+	IsMember       bool       `json:"isMember"`
+	HasPendingJoin bool       `json:"hasPendingJoin"`
+}
+
+type GroupMember struct {
+	UserID      string    `json:"userId"`
+	Username    string    `json:"username"`
+	DisplayName string    `json:"displayName"`
+	AvatarURL   *string   `json:"avatarUrl,omitempty"`
+	Role        GroupRole `json:"role"`
+	JoinedAt    time.Time `json:"joinedAt"`
+}
+
+type UpdateGroupInput struct {
+	Name        *string
+	Description *string
+	ImageURL    *string
+	JoinPolicy  *GroupJoinPolicy
+}
+
+func RoleRank(role GroupRole) int {
+	switch role {
+	case RoleAdmin:
+		return 3
+	case RoleModerator:
+		return 2
+	case RoleMember:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func IsValidGroupRole(role GroupRole) bool {
+	switch role {
+	case RoleMember, RoleModerator, RoleAdmin:
+		return true
+	default:
+		return false
+	}
+}
+
 type GroupJoinRequest struct {
 	ID          string    `json:"id"`
 	GroupID     string    `json:"groupId"`
 	UserID      string    `json:"userId"`
+	Username    string    `json:"username"`
+	DisplayName string    `json:"displayName"`
+	AvatarURL   *string   `json:"avatarUrl,omitempty"`
 	Status      string    `json:"status"`
 	RequestedAt time.Time `json:"requestedAt"`
 }

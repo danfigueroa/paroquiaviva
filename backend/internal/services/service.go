@@ -27,6 +27,10 @@ var ErrInvalidJoinPolicy = errors.New("invalid joinPolicy")
 var ErrInvalidUsername = errors.New("invalid username")
 var ErrInvalidPrayerActionType = errors.New("invalid prayer action type")
 var ErrInvalidTradition = errors.New("invalid tradition")
+var ErrPermissionDenied = errors.New("permission denied")
+var ErrLastAdmin = errors.New("cannot remove the last admin")
+var ErrCannotTargetSelf = errors.New("cannot target self for this action")
+var ErrInvalidGroupRole = errors.New("invalid group role")
 
 func NewService(repo repositories.Repository) *Service {
 	return &Service{repo: repo}
@@ -260,6 +264,174 @@ func (s *Service) ListGroupJoinRequests(ctx context.Context, actorUserID, groupI
 
 func (s *Service) ApproveGroupJoinRequest(ctx context.Context, actorUserID, groupID, requestID string) error {
 	return s.repo.ApproveGroupJoinRequest(ctx, actorUserID, groupID, requestID)
+}
+
+func (s *Service) RejectGroupJoinRequest(ctx context.Context, actorUserID, groupID, requestID string) error {
+	return s.repo.RejectGroupJoinRequest(ctx, actorUserID, groupID, requestID)
+}
+
+func (s *Service) GetGroupDetails(ctx context.Context, viewerUserID, groupID string) (models.GroupDetails, error) {
+	return s.repo.GetGroupDetails(ctx, viewerUserID, groupID)
+}
+
+func (s *Service) ListGroupMembers(ctx context.Context, viewerUserID, groupID string, limit, offset int) ([]models.GroupMember, int64, error) {
+	if _, isMember, err := s.repo.GetGroupRoleOf(ctx, viewerUserID, groupID); err != nil {
+		return nil, 0, err
+	} else if !isMember {
+		return nil, 0, ErrPermissionDenied
+	}
+	return s.repo.ListGroupMembers(ctx, groupID, limit, offset)
+}
+
+func (s *Service) ChangeMemberRole(ctx context.Context, actorUserID, groupID, targetUserID string, newRole models.GroupRole) error {
+	if !models.IsValidGroupRole(newRole) {
+		return ErrInvalidGroupRole
+	}
+	actorRole, isMember, err := s.repo.GetGroupRoleOf(ctx, actorUserID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isMember || actorRole != models.RoleAdmin {
+		return ErrPermissionDenied
+	}
+	targetRole, isTargetMember, err := s.repo.GetGroupRoleOf(ctx, targetUserID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isTargetMember {
+		return repositories.ErrGroupMembershipNotFound
+	}
+	if targetRole == newRole {
+		return nil
+	}
+	// Demoting an admin: ensure at least one admin remains.
+	if targetRole == models.RoleAdmin && newRole != models.RoleAdmin {
+		admins, err := s.repo.CountGroupAdmins(ctx, groupID)
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return ErrLastAdmin
+		}
+	}
+	return s.repo.ChangeMemberRole(ctx, groupID, targetUserID, newRole)
+}
+
+func (s *Service) RemoveGroupMember(ctx context.Context, actorUserID, groupID, targetUserID string) error {
+	if actorUserID == targetUserID {
+		return ErrCannotTargetSelf
+	}
+	actorRole, isMember, err := s.repo.GetGroupRoleOf(ctx, actorUserID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return ErrPermissionDenied
+	}
+	targetRole, isTargetMember, err := s.repo.GetGroupRoleOf(ctx, targetUserID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isTargetMember {
+		return repositories.ErrGroupMembershipNotFound
+	}
+	// Actor must outrank target. Moderator can remove member; admin can remove anyone.
+	if models.RoleRank(actorRole) <= models.RoleRank(targetRole) {
+		return ErrPermissionDenied
+	}
+	if targetRole == models.RoleAdmin {
+		admins, err := s.repo.CountGroupAdmins(ctx, groupID)
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return ErrLastAdmin
+		}
+	}
+	return s.repo.RemoveMember(ctx, groupID, targetUserID)
+}
+
+func (s *Service) LeaveGroup(ctx context.Context, userID, groupID string) error {
+	role, isMember, err := s.repo.GetGroupRoleOf(ctx, userID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return repositories.ErrGroupMembershipNotFound
+	}
+	if role == models.RoleAdmin {
+		admins, err := s.repo.CountGroupAdmins(ctx, groupID)
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return ErrLastAdmin
+		}
+	}
+	return s.repo.RemoveMember(ctx, groupID, userID)
+}
+
+func (s *Service) UpdateGroup(ctx context.Context, actorUserID, groupID string, in models.UpdateGroupInput) (models.Group, error) {
+	actorRole, isMember, err := s.repo.GetGroupRoleOf(ctx, actorUserID, groupID)
+	if err != nil {
+		return models.Group{}, err
+	}
+	if !isMember || actorRole != models.RoleAdmin {
+		return models.Group{}, ErrPermissionDenied
+	}
+	if in.Name != nil {
+		trimmed := strings.TrimSpace(*in.Name)
+		if len(trimmed) < 3 || len(trimmed) > 80 {
+			return models.Group{}, ErrInvalidGroupName
+		}
+		in.Name = &trimmed
+	}
+	if in.Description != nil {
+		trimmed := strings.TrimSpace(*in.Description)
+		if len(trimmed) > 500 {
+			return models.Group{}, ErrInvalidGroupDescription
+		}
+		in.Description = &trimmed
+	}
+	if in.JoinPolicy != nil {
+		switch *in.JoinPolicy {
+		case models.JoinPolicyOpen, models.JoinPolicyRequest, models.JoinPolicyInviteOnly:
+		default:
+			return models.Group{}, ErrInvalidJoinPolicy
+		}
+	}
+	return s.repo.UpdateGroup(ctx, groupID, in)
+}
+
+func (s *Service) ListPrayerRequestsByGroup(ctx context.Context, viewerUserID, groupID string, limit, offset int) ([]models.PrayerRequest, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if err := s.ensureGroupFeedAccess(ctx, viewerUserID, groupID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListPrayerRequestsByGroup(ctx, viewerUserID, groupID, limit, offset)
+}
+
+func (s *Service) CountPrayerRequestsByGroup(ctx context.Context, viewerUserID, groupID string) (int64, error) {
+	if err := s.ensureGroupFeedAccess(ctx, viewerUserID, groupID); err != nil {
+		return 0, err
+	}
+	return s.repo.CountPrayerRequestsByGroup(ctx, viewerUserID, groupID)
+}
+
+func (s *Service) ensureGroupFeedAccess(ctx context.Context, viewerUserID, groupID string) error {
+	details, err := s.repo.GetGroupDetails(ctx, viewerUserID, groupID)
+	if err != nil {
+		return err
+	}
+	if details.JoinPolicy == models.JoinPolicyInviteOnly && !details.IsMember {
+		return ErrPermissionDenied
+	}
+	return nil
 }
 
 func (s *Service) SendFriendRequest(ctx context.Context, fromUserID, targetUsername string) error {

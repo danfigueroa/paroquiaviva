@@ -24,6 +24,8 @@ var ErrUsernameTaken = errors.New("username already in use")
 var ErrGroupAccessDenied = errors.New("group access denied")
 var ErrPrayerRequestNotFound = errors.New("prayer request not found")
 var ErrPrayerRequestForbidden = errors.New("prayer request forbidden")
+var ErrGroupNotFound = errors.New("group not found")
+var ErrGroupMembershipNotFound = errors.New("group membership not found")
 
 type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
@@ -50,6 +52,16 @@ type Repository interface {
 	RequestJoinGroup(ctx context.Context, userID, groupID string) error
 	ListGroupJoinRequests(ctx context.Context, actorUserID, groupID string) ([]models.GroupJoinRequest, error)
 	ApproveGroupJoinRequest(ctx context.Context, actorUserID, groupID, requestID string) error
+	RejectGroupJoinRequest(ctx context.Context, actorUserID, groupID, requestID string) error
+	GetGroupDetails(ctx context.Context, viewerUserID, groupID string) (models.GroupDetails, error)
+	ListGroupMembers(ctx context.Context, groupID string, limit, offset int) ([]models.GroupMember, int64, error)
+	GetGroupRoleOf(ctx context.Context, userID, groupID string) (models.GroupRole, bool, error)
+	CountGroupAdmins(ctx context.Context, groupID string) (int64, error)
+	ChangeMemberRole(ctx context.Context, groupID, targetUserID string, newRole models.GroupRole) error
+	RemoveMember(ctx context.Context, groupID, targetUserID string) error
+	UpdateGroup(ctx context.Context, groupID string, in models.UpdateGroupInput) (models.Group, error)
+	ListPrayerRequestsByGroup(ctx context.Context, viewerUserID, groupID string, limit, offset int) ([]models.PrayerRequest, error)
+	CountPrayerRequestsByGroup(ctx context.Context, viewerUserID, groupID string) (int64, error)
 	SendFriendRequest(ctx context.Context, fromUserID, targetUsername string) error
 	ListFriends(ctx context.Context, userID string) ([]models.Friend, error)
 	ListPendingFriendRequests(ctx context.Context, userID string) ([]models.FriendRequest, error)
@@ -727,10 +739,13 @@ func (r *PostgresRepository) ListGroupJoinRequests(ctx context.Context, actorUse
 	}
 
 	rows, err := r.db.Query(ctx, `
-		SELECT id::text, group_id::text, user_id::text, status, requested_at
-		FROM group_join_requests
-		WHERE group_id = $1 AND status = 'PENDING'
-		ORDER BY requested_at ASC
+		SELECT gjr.id::text, gjr.group_id::text, gjr.user_id::text,
+		       u.username, u.display_name, u.avatar_url,
+		       gjr.status, gjr.requested_at
+		FROM group_join_requests gjr
+		INNER JOIN users u ON u.id = gjr.user_id
+		WHERE gjr.group_id = $1 AND gjr.status = 'PENDING' AND u.deleted_at IS NULL
+		ORDER BY gjr.requested_at ASC
 	`, groupID)
 	if err != nil {
 		return nil, err
@@ -740,13 +755,36 @@ func (r *PostgresRepository) ListGroupJoinRequests(ctx context.Context, actorUse
 	items := make([]models.GroupJoinRequest, 0)
 	for rows.Next() {
 		var req models.GroupJoinRequest
-		err = rows.Scan(&req.ID, &req.GroupID, &req.UserID, &req.Status, &req.RequestedAt)
+		err = rows.Scan(&req.ID, &req.GroupID, &req.UserID, &req.Username, &req.DisplayName, &req.AvatarURL, &req.Status, &req.RequestedAt)
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, req)
 	}
 	return items, rows.Err()
+}
+
+func (r *PostgresRepository) RejectGroupJoinRequest(ctx context.Context, actorUserID, groupID, requestID string) error {
+	ok, err := r.isGroupAdmin(ctx, actorUserID, groupID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrGroupAdminRequired
+	}
+
+	ct, err := r.db.Exec(ctx, `
+		UPDATE group_join_requests
+		SET status = 'REJECTED', reviewed_at = NOW(), reviewed_by = $1
+		WHERE id = $2 AND group_id = $3 AND status = 'PENDING'
+	`, actorUserID, requestID, groupID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrJoinRequestNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) ApproveGroupJoinRequest(ctx context.Context, actorUserID, groupID, requestID string) error {
@@ -1123,6 +1161,229 @@ func (r *PostgresRepository) SearchUsersForFriendship(ctx context.Context, userI
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *PostgresRepository) GetGroupDetails(ctx context.Context, viewerUserID, groupID string) (models.GroupDetails, error) {
+	var d models.GroupDetails
+	var myRole *string
+	var hasPending bool
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			g.id::text, g.name, g.description, g.image_url, g.join_policy, g.requires_moderation,
+			g.created_by::text, g.created_at, g.updated_at,
+			(SELECT COUNT(*)::bigint FROM group_memberships gm WHERE gm.group_id = g.id AND gm.deleted_at IS NULL) AS member_count,
+			(SELECT gm.role::text FROM group_memberships gm
+				WHERE gm.group_id = g.id AND gm.user_id = NULLIF($2, '')::uuid AND gm.deleted_at IS NULL) AS my_role,
+			EXISTS (
+				SELECT 1 FROM group_join_requests gjr
+				WHERE gjr.group_id = g.id AND gjr.user_id = NULLIF($2, '')::uuid AND gjr.status = 'PENDING'
+			) AS has_pending
+		FROM groups g
+		WHERE g.id = $1 AND g.deleted_at IS NULL
+	`, groupID, viewerUserID).Scan(
+		&d.ID, &d.Name, &d.Description, &d.ImageURL, &d.JoinPolicy, &d.RequiresModeration,
+		&d.CreatedBy, &d.CreatedAt, &d.UpdatedAt,
+		&d.MemberCount, &myRole, &hasPending,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.GroupDetails{}, ErrGroupNotFound
+		}
+		return models.GroupDetails{}, err
+	}
+	if myRole != nil {
+		role := models.GroupRole(*myRole)
+		d.MyRole = &role
+		d.IsMember = true
+	}
+	d.HasPendingJoin = hasPending
+	return d, nil
+}
+
+func (r *PostgresRepository) GetGroupRoleOf(ctx context.Context, userID, groupID string) (models.GroupRole, bool, error) {
+	var role string
+	err := r.db.QueryRow(ctx, `
+		SELECT role::text FROM group_memberships
+		WHERE group_id = $1 AND user_id = $2 AND deleted_at IS NULL
+	`, groupID, userID).Scan(&role)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return models.GroupRole(role), true, nil
+}
+
+func (r *PostgresRepository) CountGroupAdmins(ctx context.Context, groupID string) (int64, error) {
+	var n int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)::bigint FROM group_memberships
+		WHERE group_id = $1 AND role = 'ADMIN' AND deleted_at IS NULL
+	`, groupID).Scan(&n)
+	return n, err
+}
+
+func (r *PostgresRepository) ListGroupMembers(ctx context.Context, groupID string, limit, offset int) ([]models.GroupMember, int64, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var total int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)::bigint FROM group_memberships
+		WHERE group_id = $1 AND deleted_at IS NULL
+	`, groupID).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT u.id::text, u.username, u.display_name, u.avatar_url, gm.role::text, gm.created_at
+		FROM group_memberships gm
+		INNER JOIN users u ON u.id = gm.user_id
+		WHERE gm.group_id = $1 AND gm.deleted_at IS NULL AND u.deleted_at IS NULL
+		ORDER BY
+			CASE gm.role WHEN 'ADMIN' THEN 0 WHEN 'MODERATOR' THEN 1 ELSE 2 END,
+			gm.created_at ASC
+		LIMIT $2 OFFSET $3
+	`, groupID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]models.GroupMember, 0)
+	for rows.Next() {
+		var m models.GroupMember
+		var role string
+		if err = rows.Scan(&m.UserID, &m.Username, &m.DisplayName, &m.AvatarURL, &role, &m.JoinedAt); err != nil {
+			return nil, 0, err
+		}
+		m.Role = models.GroupRole(role)
+		items = append(items, m)
+	}
+	return items, total, rows.Err()
+}
+
+func (r *PostgresRepository) ChangeMemberRole(ctx context.Context, groupID, targetUserID string, newRole models.GroupRole) error {
+	ct, err := r.db.Exec(ctx, `
+		UPDATE group_memberships
+		SET role = $3, updated_at = NOW()
+		WHERE group_id = $1 AND user_id = $2 AND deleted_at IS NULL
+	`, groupID, targetUserID, newRole)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrGroupMembershipNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) RemoveMember(ctx context.Context, groupID, targetUserID string) error {
+	ct, err := r.db.Exec(ctx, `
+		UPDATE group_memberships
+		SET deleted_at = NOW(), updated_at = NOW()
+		WHERE group_id = $1 AND user_id = $2 AND deleted_at IS NULL
+	`, groupID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrGroupMembershipNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) UpdateGroup(ctx context.Context, groupID string, in models.UpdateGroupInput) (models.Group, error) {
+	var g models.Group
+	err := r.db.QueryRow(ctx, `
+		UPDATE groups
+		SET
+			name = COALESCE($2, name),
+			description = COALESCE($3, description),
+			image_url = CASE WHEN $4::text IS NULL THEN image_url ELSE NULLIF($4, '') END,
+			join_policy = COALESCE($5::group_join_policy, join_policy),
+			updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING id::text, name, description, image_url, join_policy, requires_moderation, created_by::text, created_at, updated_at
+	`,
+		groupID,
+		in.Name,
+		in.Description,
+		nullableStringPtr(in.ImageURL),
+		nullableJoinPolicyPtr(in.JoinPolicy),
+	).Scan(&g.ID, &g.Name, &g.Description, &g.ImageURL, &g.JoinPolicy, &g.RequiresModeration, &g.CreatedBy, &g.CreatedAt, &g.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.Group{}, ErrGroupNotFound
+		}
+		return models.Group{}, err
+	}
+	return g, nil
+}
+
+func nullableStringPtr(p *string) any {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func nullableJoinPolicyPtr(p *models.GroupJoinPolicy) any {
+	if p == nil {
+		return nil
+	}
+	return string(*p)
+}
+
+func (r *PostgresRepository) ListPrayerRequestsByGroup(ctx context.Context, viewerUserID, groupID string, limit, offset int) ([]models.PrayerRequest, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT pr.id::text, pr.author_id::text, pr.title, pr.body, pr.category, pr.visibility, pr.tradition, pr.allow_anonymous, pr.status, pr.prayed_count, pr.created_at, pr.updated_at
+		FROM prayer_requests pr
+		INNER JOIN prayer_request_groups prg ON prg.prayer_request_id = pr.id
+		WHERE prg.group_id = $1
+		  AND pr.status = 'ACTIVE'
+		  AND pr.deleted_at IS NULL
+		  AND pr.tradition = COALESCE(
+			(SELECT tradition FROM users WHERE id = NULLIF($4, '')::uuid AND deleted_at IS NULL),
+			pr.tradition
+		  )
+		ORDER BY pr.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, groupID, limit, offset, viewerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items, err := scanPrayerRequests(rows)
+	if err != nil {
+		return nil, err
+	}
+	if err = r.enrichPrayerRequests(ctx, viewerUserID, items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *PostgresRepository) CountPrayerRequestsByGroup(ctx context.Context, viewerUserID, groupID string) (int64, error) {
+	var total int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)::bigint
+		FROM prayer_requests pr
+		INNER JOIN prayer_request_groups prg ON prg.prayer_request_id = pr.id
+		WHERE prg.group_id = $1
+		  AND pr.status = 'ACTIVE'
+		  AND pr.deleted_at IS NULL
+		  AND pr.tradition = COALESCE(
+			(SELECT tradition FROM users WHERE id = NULLIF($2, '')::uuid AND deleted_at IS NULL),
+			pr.tradition
+		  )
+	`, groupID, viewerUserID).Scan(&total)
+	return total, err
 }
 
 var _ Repository = (*PostgresRepository)(nil)
