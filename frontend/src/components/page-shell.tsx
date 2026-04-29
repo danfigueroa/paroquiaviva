@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useSessionStore } from '@/state/session-store'
 import { getSupabaseClient } from '@/lib/supabase'
 import { api } from '@/lib/api'
+import { NotificationBell } from '@/components/notification-bell'
 
 type ProfileMini = {
   email: string
@@ -161,7 +162,7 @@ export function PageShell({ children }: PropsWithChildren) {
       await supabase.auth.signOut()
     }
     setAccessToken(null)
-    navigate('/auth', { replace: true })
+    navigate('/', { replace: true })
   }
 
   useEffect(() => {
@@ -213,6 +214,9 @@ export function PageShell({ children }: PropsWithChildren) {
             Paróquia Viva
           </Link>
 
+          <div className="flex items-center gap-2">
+          <NotificationBell />
+
           <div className="relative" ref={menuRef}>
             <button
               className="pv-chip inline-flex items-center gap-2 rounded-full px-2.5 py-1.5"
@@ -260,6 +264,7 @@ export function PageShell({ children }: PropsWithChildren) {
                 </button>
               </div>
             )}
+          </div>
           </div>
         </div>
 
