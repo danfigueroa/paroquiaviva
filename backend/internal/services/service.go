@@ -519,3 +519,25 @@ func isValidTradition(tradition models.Tradition) bool {
 		return false
 	}
 }
+
+func (s *Service) ListNotifications(ctx context.Context, userID string, limit, offset int) ([]models.NotificationView, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.repo.ListNotifications(ctx, userID, limit, offset)
+}
+
+func (s *Service) CountUnreadNotifications(ctx context.Context, userID string) (int64, error) {
+	return s.repo.CountUnreadNotifications(ctx, userID)
+}
+
+func (s *Service) MarkNotificationRead(ctx context.Context, userID, id string) error {
+	return s.repo.MarkNotificationRead(ctx, userID, id)
+}
+
+func (s *Service) MarkAllNotificationsRead(ctx context.Context, userID string) error {
+	return s.repo.MarkAllNotificationsRead(ctx, userID)
+}

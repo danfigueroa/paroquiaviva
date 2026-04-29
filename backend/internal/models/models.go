@@ -231,3 +231,48 @@ type UserSummary struct {
 	DisplayName string  `json:"displayName"`
 	AvatarURL   *string `json:"avatarUrl,omitempty"`
 }
+
+type NotificationType string
+
+const (
+	NotificationTypePrayed                NotificationType = "PRAYED"
+	NotificationTypeFriendRequestReceived NotificationType = "FRIEND_REQUEST_RECEIVED"
+	NotificationTypeFriendRequestAccepted NotificationType = "FRIEND_REQUEST_ACCEPTED"
+	NotificationTypeGroupJoinApproved     NotificationType = "GROUP_JOIN_APPROVED"
+	NotificationTypeGroupJoinRequested    NotificationType = "GROUP_JOIN_REQUESTED"
+)
+
+type NotificationSubjectType string
+
+const (
+	NotificationSubjectPrayerRequest NotificationSubjectType = "PRAYER_REQUEST"
+	NotificationSubjectFriendship    NotificationSubjectType = "FRIENDSHIP"
+	NotificationSubjectGroup         NotificationSubjectType = "GROUP"
+)
+
+type NotificationActor struct {
+	UserID      string  `json:"userId"`
+	Username    string  `json:"username"`
+	DisplayName string  `json:"displayName"`
+	AvatarURL   *string `json:"avatarUrl,omitempty"`
+}
+
+type NotificationView struct {
+	ID          string                  `json:"id"`
+	Type        NotificationType        `json:"type"`
+	SubjectType NotificationSubjectType `json:"subjectType"`
+	SubjectID   string                  `json:"subjectId"`
+	Actor       *NotificationActor      `json:"actor,omitempty"`
+	Payload     map[string]any          `json:"payload"`
+	ReadAt      *time.Time              `json:"readAt,omitempty"`
+	CreatedAt   time.Time               `json:"createdAt"`
+}
+
+type CreateNotificationInput struct {
+	UserID      string
+	Type        NotificationType
+	ActorUserID *string
+	SubjectType NotificationSubjectType
+	SubjectID   string
+	Payload     map[string]any
+}

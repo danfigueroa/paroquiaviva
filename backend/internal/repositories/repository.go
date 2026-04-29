@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -67,6 +68,11 @@ type Repository interface {
 	ListPendingFriendRequests(ctx context.Context, userID string) ([]models.FriendRequest, error)
 	AcceptFriendRequest(ctx context.Context, userID, requestID string) error
 	SearchUsersForFriendship(ctx context.Context, userID, query string, limit int) ([]models.UserSummary, error)
+	CreateNotification(ctx context.Context, in models.CreateNotificationInput) error
+	ListNotifications(ctx context.Context, userID string, limit, offset int) ([]models.NotificationView, error)
+	CountUnreadNotifications(ctx context.Context, userID string) (int64, error)
+	MarkNotificationRead(ctx context.Context, userID, id string) error
+	MarkAllNotificationsRead(ctx context.Context, userID string) error
 }
 
 type PostgresRepository struct {
@@ -414,7 +420,26 @@ func (r *PostgresRepository) RecordPrayerAction(ctx context.Context, userID, req
 		SET prayed_count = prayed_count + 1, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 	`, requestID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	var authorID string
+	if err := r.db.QueryRow(ctx, `
+		SELECT author_id::text FROM prayer_requests WHERE id = $1 AND deleted_at IS NULL
+	`, requestID).Scan(&authorID); err == nil && authorID != "" && authorID != userID {
+		actor := userID
+		_ = insertNotificationOn(ctx, r.db, models.CreateNotificationInput{
+			UserID:      authorID,
+			Type:        models.NotificationTypePrayed,
+			ActorUserID: &actor,
+			SubjectType: models.NotificationSubjectPrayerRequest,
+			SubjectID:   requestID,
+			Payload:     map[string]any{"actionType": string(actionType)},
+		})
+	}
+
+	return nil
 }
 
 func (r *PostgresRepository) ListGroupsPrayerRequests(ctx context.Context, userID string, limit, offset int) ([]models.PrayerRequest, error) {
@@ -723,7 +748,11 @@ func (r *PostgresRepository) RequestJoinGroup(ctx context.Context, userID, group
 			VALUES ($1, $2, 'PENDING')
 			ON CONFLICT (group_id, user_id) DO UPDATE SET status = 'PENDING', requested_at = NOW(), reviewed_at = NULL, reviewed_by = NULL
 		`, groupID, userID)
-		return err
+		if err != nil {
+			return err
+		}
+		r.notifyGroupAdminsOfJoinRequest(ctx, userID, groupID)
+		return nil
 	default:
 		return ErrInviteOnlyGroup
 	}
@@ -824,6 +853,16 @@ func (r *PostgresRepository) ApproveGroupJoinRequest(ctx context.Context, actorU
 	if err != nil {
 		return err
 	}
+
+	actor := actorUserID
+	_ = insertNotificationOn(ctx, tx, models.CreateNotificationInput{
+		UserID:      userID,
+		Type:        models.NotificationTypeGroupJoinApproved,
+		ActorUserID: &actor,
+		SubjectType: models.NotificationSubjectGroup,
+		SubjectID:   groupID,
+		Payload:     map[string]any{},
+	})
 
 	return tx.Commit(ctx)
 }
@@ -1036,13 +1075,25 @@ func (r *PostgresRepository) SendFriendRequest(ctx context.Context, fromUserID, 
 		return err
 	}
 
-	_, err = tx.Exec(ctx, `
+	var friendshipID string
+	err = tx.QueryRow(ctx, `
 		INSERT INTO friendships (user_id, friend_user_id, status)
 		VALUES ($1, $2, 'PENDING')
-	`, fromUserID, targetUserID)
+		RETURNING id::text
+	`, fromUserID, targetUserID).Scan(&friendshipID)
 	if err != nil {
 		return err
 	}
+
+	actor := fromUserID
+	_ = insertNotificationOn(ctx, tx, models.CreateNotificationInput{
+		UserID:      targetUserID,
+		Type:        models.NotificationTypeFriendRequestReceived,
+		ActorUserID: &actor,
+		SubjectType: models.NotificationSubjectFriendship,
+		SubjectID:   friendshipID,
+		Payload:     map[string]any{},
+	})
 
 	return tx.Commit(ctx)
 }
@@ -1108,19 +1159,31 @@ func (r *PostgresRepository) ListPendingFriendRequests(ctx context.Context, user
 }
 
 func (r *PostgresRepository) AcceptFriendRequest(ctx context.Context, userID, requestID string) error {
-	ct, err := r.db.Exec(ctx, `
+	var senderID string
+	err := r.db.QueryRow(ctx, `
 		UPDATE friendships
 		SET status = 'ACCEPTED', updated_at = NOW()
 		WHERE id = $1
 		  AND friend_user_id = $2
 		  AND status = 'PENDING'
-	`, requestID, userID)
+		RETURNING user_id::text
+	`, requestID, userID).Scan(&senderID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrFriendRequestNotFound
+		}
 		return err
 	}
-	if ct.RowsAffected() == 0 {
-		return ErrFriendRequestNotFound
-	}
+
+	actor := userID
+	_ = insertNotificationOn(ctx, r.db, models.CreateNotificationInput{
+		UserID:      senderID,
+		Type:        models.NotificationTypeFriendRequestAccepted,
+		ActorUserID: &actor,
+		SubjectType: models.NotificationSubjectFriendship,
+		SubjectID:   requestID,
+		Payload:     map[string]any{},
+	})
 	return nil
 }
 
@@ -1384,6 +1447,159 @@ func (r *PostgresRepository) CountPrayerRequestsByGroup(ctx context.Context, vie
 		  )
 	`, groupID, viewerUserID).Scan(&total)
 	return total, err
+}
+
+type notifyExec interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+func insertNotificationOn(ctx context.Context, exec notifyExec, in models.CreateNotificationInput) error {
+	payload := in.Payload
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, err = exec.Exec(ctx, `
+		INSERT INTO notifications (user_id, type, actor_user_id, subject_type, subject_id, payload)
+		VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6::jsonb)
+	`, in.UserID, string(in.Type), nullableStringValue(in.ActorUserID), string(in.SubjectType), in.SubjectID, payloadBytes)
+	return err
+}
+
+func nullableStringValue(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+func (r *PostgresRepository) CreateNotification(ctx context.Context, in models.CreateNotificationInput) error {
+	return insertNotificationOn(ctx, r.db, in)
+}
+
+func (r *PostgresRepository) ListNotifications(ctx context.Context, userID string, limit, offset int) ([]models.NotificationView, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := r.db.Query(ctx, `
+		SELECT n.id::text, n.type, n.subject_type, n.subject_id::text, n.payload, n.read_at, n.created_at,
+		       a.id::text, a.username, a.display_name, a.avatar_url
+		FROM notifications n
+		LEFT JOIN users a ON a.id = n.actor_user_id AND a.deleted_at IS NULL
+		WHERE n.user_id = $1
+		ORDER BY n.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, userID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.NotificationView, 0)
+	for rows.Next() {
+		var (
+			n              models.NotificationView
+			payloadBytes   []byte
+			actorID        *string
+			actorUsername  *string
+			actorDisplay   *string
+			actorAvatarURL *string
+		)
+		if err = rows.Scan(&n.ID, &n.Type, &n.SubjectType, &n.SubjectID, &payloadBytes, &n.ReadAt, &n.CreatedAt,
+			&actorID, &actorUsername, &actorDisplay, &actorAvatarURL); err != nil {
+			return nil, err
+		}
+		if len(payloadBytes) > 0 {
+			if err = json.Unmarshal(payloadBytes, &n.Payload); err != nil {
+				return nil, err
+			}
+		}
+		if n.Payload == nil {
+			n.Payload = map[string]any{}
+		}
+		if actorID != nil {
+			n.Actor = &models.NotificationActor{
+				UserID:      *actorID,
+				Username:    derefStr(actorUsername),
+				DisplayName: derefStr(actorDisplay),
+				AvatarURL:   actorAvatarURL,
+			}
+		}
+		items = append(items, n)
+	}
+	return items, rows.Err()
+}
+
+func derefStr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+func (r *PostgresRepository) CountUnreadNotifications(ctx context.Context, userID string) (int64, error) {
+	var n int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)::bigint
+		FROM notifications
+		WHERE user_id = $1 AND read_at IS NULL
+	`, userID).Scan(&n)
+	return n, err
+}
+
+func (r *PostgresRepository) MarkNotificationRead(ctx context.Context, userID, id string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE notifications
+		SET read_at = NOW()
+		WHERE id = $1 AND user_id = $2 AND read_at IS NULL
+	`, id, userID)
+	return err
+}
+
+func (r *PostgresRepository) notifyGroupAdminsOfJoinRequest(ctx context.Context, requesterUserID, groupID string) {
+	rows, err := r.db.Query(ctx, `
+		SELECT user_id::text
+		FROM group_memberships
+		WHERE group_id = $1 AND role = 'ADMIN' AND deleted_at IS NULL
+	`, groupID)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	actor := requesterUserID
+	for rows.Next() {
+		var adminID string
+		if err := rows.Scan(&adminID); err != nil {
+			return
+		}
+		if adminID == requesterUserID {
+			continue
+		}
+		_ = insertNotificationOn(ctx, r.db, models.CreateNotificationInput{
+			UserID:      adminID,
+			Type:        models.NotificationTypeGroupJoinRequested,
+			ActorUserID: &actor,
+			SubjectType: models.NotificationSubjectGroup,
+			SubjectID:   groupID,
+			Payload:     map[string]any{},
+		})
+	}
+}
+
+func (r *PostgresRepository) MarkAllNotificationsRead(ctx context.Context, userID string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE notifications
+		SET read_at = NOW()
+		WHERE user_id = $1 AND read_at IS NULL
+	`, userID)
+	return err
 }
 
 var _ Repository = (*PostgresRepository)(nil)
