@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useSessionStore } from '@/state/session-store'
+import { LandingPage } from '@/pages/landing-page'
 
 export function RequireAuth() {
   const accessToken = useSessionStore((s) => s.accessToken)
@@ -20,5 +21,5 @@ export function PublicEntry() {
     return <Navigate to="/feed" replace />
   }
 
-  return <Navigate to="/auth" replace />
+  return <LandingPage />
 }
