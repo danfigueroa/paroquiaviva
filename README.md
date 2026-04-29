@@ -226,10 +226,24 @@ cp frontend/.env.example frontend/.env
 
 ## Run Locally
 
-From root:
+Sobe **backend (`:8080`) e frontend (`:5173`) ao mesmo tempo** com um único comando, a partir da raiz:
 
 ```bash
-(cd backend && set -a && source .env && set +a && GOCACHE=/tmp/go-build go run ./cmd/api) & (cd frontend && npm run dev)
+make dev
+```
+
+O alvo carrega `backend/.env`, roda `go run ./cmd/api` em paralelo com `npm run dev` (Vite) no frontend e derruba os dois com `Ctrl+C`.
+
+Pré-requisitos: `make`, Go ≥ 1.22, Node ≥ 20, `backend/.env` e `frontend/.env` preenchidos (ver seções acima).
+
+Se preferir rodar sem `make`, em dois terminais:
+
+```bash
+# terminal 1
+cd backend && set -a && source .env && set +a && go run ./cmd/api
+
+# terminal 2
+cd frontend && npm run dev
 ```
 
 ## Migrations
