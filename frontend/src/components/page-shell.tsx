@@ -269,8 +269,8 @@ export function PageShell({ children }: PropsWithChildren) {
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/feed">Mural</NavLink>
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/friends">Amigos</NavLink>
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/requests/new">Novo Pedido</NavLink>
-              <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/groups">Criar Grupo</NavLink>
-              <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/moderation">Moderação</NavLink>
+              <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/groups">Grupos</NavLink>
+              <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/groups/new">Criar Grupo</NavLink>
             </nav>
           </div>
 

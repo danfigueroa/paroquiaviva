@@ -7,6 +7,7 @@ import { FeedSkeleton } from '@/components/feed-skeleton'
 const FeedPage = lazy(() => import('@/pages/feed-page').then((m) => ({ default: m.FeedPage })))
 const GroupPage = lazy(() => import('@/pages/group-page').then((m) => ({ default: m.GroupPage })))
 const GroupsPage = lazy(() => import('@/pages/groups-page').then((m) => ({ default: m.GroupsPage })))
+const NewGroupPage = lazy(() => import('@/pages/new-group-page').then((m) => ({ default: m.NewGroupPage })))
 const FriendsPage = lazy(() => import('@/pages/friends-page').then((m) => ({ default: m.FriendsPage })))
 const NewRequestPage = lazy(() =>
   import('@/pages/new-request-page').then((m) => ({ default: m.NewRequestPage }))
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/feed', element: lazyRoute(<FeedPage />) },
       { path: '/groups', element: lazyRoute(<GroupsPage />) },
+      { path: '/groups/new', element: lazyRoute(<NewGroupPage />) },
       { path: '/groups/:id', element: lazyRoute(<GroupPage />) },
       { path: '/friends', element: lazyRoute(<FriendsPage />) },
       { path: '/requests/new', element: lazyRoute(<NewRequestPage />) },
