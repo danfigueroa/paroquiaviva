@@ -39,8 +39,9 @@ export function LandingPage() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6">
       <header className="mb-8 flex items-center justify-between rounded-2xl border border-primary bg-panel/90 p-4 backdrop-blur">
-        <Link to="/" className="text-lg font-semibold text-secondary">
-          Paróquia Viva
+        <Link to="/" className="flex items-center gap-3" aria-label="Creo — ir para o início">
+          <img src="/creo-icon.png" alt="" className="h-14 w-14 rounded-xl shadow-sm" />
+          <span className="text-3xl font-bold tracking-tight text-secondary">Creo</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link to="/auth">
@@ -54,33 +55,38 @@ export function LandingPage() {
 
       <main className="flex-1 space-y-12 sm:space-y-16">
         <section className="pv-panel rounded-3xl p-6 sm:p-10 lg:p-14">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Espaço comunitário de oração</p>
-          <h1 className="pv-title mt-4 max-w-3xl text-3xl font-bold leading-[1.05] text-secondary sm:text-5xl lg:text-6xl">
-            A rede social que aproxima sua comunidade da fé.
-          </h1>
-          <p className="pv-muted mt-5 max-w-2xl text-base leading-relaxed sm:text-lg">
-            Compartilhe pedidos de oração, organize grupos, conecte-se com amigos e viva a espiritualidade em
-            comunidade — católica ou evangélica — em um ambiente moderno e acolhedor.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link to="/auth">
-              <Button className="w-full sm:w-auto">Criar conta gratuita</Button>
-            </Link>
-            <Link to="/auth">
-              <Button className="w-full sm:w-auto" variant="secondary">Já tenho conta</Button>
-            </Link>
+          <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+            <img src="/creo-logo.png" alt="Creo" className="h-28 w-auto sm:h-36 lg:h-44" />
+            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-primary sm:text-sm">
+              Eu acredito. Nós conectamos. Nós crescemos.
+            </p>
+            <h1 className="pv-title mt-6 text-3xl font-bold leading-[1.1] text-secondary sm:text-5xl lg:text-6xl">
+              A rede social que aproxima sua comunidade da fé.
+            </h1>
+            <p className="pv-muted mt-5 max-w-2xl text-base leading-relaxed sm:text-lg">
+              Compartilhe pedidos de oração, organize grupos, conecte-se com amigos e viva a espiritualidade em
+              comunidade — católica ou evangélica — em um ambiente moderno e acolhedor.
+            </p>
+            <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center">
+              <Link to="/auth">
+                <Button className="w-full sm:w-auto">Criar conta gratuita</Button>
+              </Link>
+              <Link to="/auth">
+                <Button className="w-full sm:w-auto" variant="secondary">Já tenho conta</Button>
+              </Link>
+            </div>
           </div>
 
-          <div className="mt-10 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-primary bg-panel px-4 py-4">
+          <div className="mx-auto mt-12 grid max-w-4xl gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-primary bg-panel px-4 py-4 text-center">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Tradições</p>
               <p className="mt-2 text-sm font-semibold text-secondary">Católica e evangélica</p>
             </div>
-            <div className="rounded-2xl border border-primary bg-panel px-4 py-4">
+            <div className="rounded-2xl border border-primary bg-panel px-4 py-4 text-center">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Privacidade</p>
               <p className="mt-2 text-sm font-semibold text-secondary">Pedidos só para sua rede</p>
             </div>
-            <div className="rounded-2xl border border-primary bg-panel px-4 py-4">
+            <div className="rounded-2xl border border-primary bg-panel px-4 py-4 text-center">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Acesso</p>
               <p className="mt-2 text-sm font-semibold text-secondary">Web, gratuito e seguro</p>
             </div>
@@ -135,7 +141,7 @@ export function LandingPage() {
       </main>
 
       <footer className="mt-12 flex flex-col items-start justify-between gap-3 border-t border-primary/40 pt-6 text-xs text-primary sm:flex-row sm:items-center">
-        <p>© {new Date().getFullYear()} Paróquia Viva — feito com fé para a comunidade.</p>
+        <p>© {new Date().getFullYear()} Creo — feito com fé para a comunidade.</p>
         <div className="flex gap-4">
           <Link to="/auth" className="hover:text-secondary">Entrar</Link>
           <Link to="/auth" className="hover:text-secondary">Criar conta</Link>

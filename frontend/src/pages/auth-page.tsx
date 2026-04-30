@@ -196,9 +196,9 @@ export function AuthPage() {
         />
 
         <div className="relative">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary bg-panel text-[11px] font-bold text-primary">PV</span>
-            Paróquia Viva
+          <Link to="/" className="inline-flex items-center gap-2.5" aria-label="Creo — ir para o início">
+            <img src="/creo-icon.png" alt="" className="h-12 w-12 rounded-xl shadow-sm" />
+            <span className="text-2xl font-bold tracking-tight text-secondary">Creo</span>
           </Link>
           <h1 className="pv-title mt-7 text-3xl font-bold leading-[1.05] text-secondary sm:text-4xl lg:text-[46px]">
             Sua comunidade unida em oração, todos os dias.

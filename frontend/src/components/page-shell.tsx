@@ -217,8 +217,9 @@ export function PageShell({ children }: PropsWithChildren) {
     <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-6 sm:px-6">
       <header className="mb-6 rounded-2xl border border-primary bg-panel/90 p-4 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
-          <Link to="/" className="shrink-0 text-lg font-semibold text-secondary">
-            Paróquia Viva
+          <Link to="/" className="flex shrink-0 items-center gap-3" aria-label="Creo — ir para o início">
+            <img src="/creo-icon.png" alt="" className="h-12 w-12 rounded-xl shadow-sm" />
+            <span className="text-2xl font-bold tracking-tight text-secondary">Creo</span>
           </Link>
 
           <div className="flex items-center gap-2">
