@@ -32,7 +32,7 @@ var ErrUserNotFound = errors.New("user not found")
 type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (models.User, error)
-	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, bio *string) (models.User, error)
+	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, setAvatar bool, bio *string, setBio bool) (models.User, error)
 	GetFriendshipState(ctx context.Context, viewerID, ownerID string) (models.PublicFriendshipState, *string, error)
 	GetUserStats(ctx context.Context, userID string) (models.ProfileStats, error)
 	UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName, preferredTradition string) error
@@ -113,14 +113,18 @@ func (r *PostgresRepository) GetUserByUsername(ctx context.Context, username str
 	return u, nil
 }
 
-func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, bio *string) (models.User, error) {
+func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, setAvatar bool, bio *string, setBio bool) (models.User, error) {
 	var u models.User
 	err := r.db.QueryRow(ctx, `
 		UPDATE users
-		SET display_name = $2, username = $3, avatar_url = $4, bio = $5, updated_at = NOW()
+		SET display_name = $2,
+		    username = $3,
+		    avatar_url = CASE WHEN $5::bool THEN $4 ELSE avatar_url END,
+		    bio = CASE WHEN $7::bool THEN $6 ELSE bio END,
+		    updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING id::text, email, username, display_name, avatar_url, bio, tradition, created_at, updated_at
-	`, userID, displayName, username, avatarURL, bio).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
+	`, userID, displayName, username, avatarURL, setAvatar, bio, setBio).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "username") {

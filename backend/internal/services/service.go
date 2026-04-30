@@ -41,7 +41,7 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (models.User, e
 	return s.repo.GetUserByID(ctx, userID)
 }
 
-func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, bio *string) (models.User, error) {
+func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, setAvatar bool, bio *string, setBio bool) (models.User, error) {
 	displayName = strings.TrimSpace(displayName)
 	username = normalizeUsername(username)
 	if displayName == "" {
@@ -60,7 +60,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, userna
 	if !matched {
 		return models.User{}, ErrInvalidUsername
 	}
-	if bio != nil {
+	if setBio && bio != nil {
 		trimmed := strings.TrimSpace(*bio)
 		if len([]rune(trimmed)) > 280 {
 			return models.User{}, ErrInvalidBio
@@ -71,7 +71,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, userna
 			bio = &trimmed
 		}
 	}
-	return s.repo.UpdateUserProfile(ctx, userID, displayName, username, avatarURL, bio)
+	return s.repo.UpdateUserProfile(ctx, userID, displayName, username, avatarURL, setAvatar, bio, setBio)
 }
 
 func (s *Service) GetPublicProfile(ctx context.Context, viewerID, username string) (models.PublicProfile, error) {

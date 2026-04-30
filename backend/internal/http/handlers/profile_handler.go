@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"parish-viva/backend/internal/http/middleware"
@@ -53,12 +54,24 @@ func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		shared.WriteError(w, http.StatusInternalServerError, "USER_SYNC_FAILED", "Could not prepare user profile", nil)
 		return
 	}
-	var req updateProfileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		shared.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload", nil)
 		return
 	}
-	profile, err := h.service.UpdateProfile(r.Context(), userID, req.DisplayName, req.Username, req.AvatarURL, req.Bio)
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		shared.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload", nil)
+		return
+	}
+	var req updateProfileRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		shared.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload", nil)
+		return
+	}
+	_, hasAvatar := raw["avatarUrl"]
+	_, hasBio := raw["bio"]
+	profile, err := h.service.UpdateProfile(r.Context(), userID, req.DisplayName, req.Username, req.AvatarURL, hasAvatar, req.Bio, hasBio)
 	if err != nil {
 		if errors.Is(err, repositories.ErrUsernameTaken) {
 			shared.WriteError(w, http.StatusConflict, "USERNAME_TAKEN", "This username is already in use", nil)
