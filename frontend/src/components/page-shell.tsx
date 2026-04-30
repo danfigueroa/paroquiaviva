@@ -5,17 +5,20 @@ import { useSessionStore } from '@/state/session-store'
 import { getSupabaseClient } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import { NotificationBell } from '@/components/notification-bell'
+import { Avatar } from '@/components/avatar'
 
 type ProfileMini = {
   email: string
   username: string
   displayName: string
+  avatarUrl?: string | null
 }
 
 type SearchUser = {
   userId: string
   username: string
   displayName: string
+  avatarUrl?: string | null
 }
 
 type SearchGroup = {
@@ -147,7 +150,11 @@ export function PageShell({ children }: PropsWithChildren) {
   }, [profileQuery.data])
 
   const username = profileQuery.data?.username ? `@${profileQuery.data.username}` : ''
-  const avatarLetter = (displayName[0] || 'U').toUpperCase()
+  const profileForAvatar = {
+    displayName,
+    username: profileQuery.data?.username,
+    avatarUrl: profileQuery.data?.avatarUrl
+  }
 
   function navClass(baseClass: string, isActive: boolean) {
     if (isActive) {
@@ -223,7 +230,7 @@ export function PageShell({ children }: PropsWithChildren) {
               onClick={() => setMenuOpen((prev) => !prev)}
               type="button"
             >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-panel text-xs font-bold text-primary">{avatarLetter}</span>
+              <Avatar user={profileForAvatar} size="xs" />
               <span className="hidden max-w-[150px] truncate text-sm text-secondary sm:inline">{displayName}</span>
             </button>
 
@@ -306,11 +313,16 @@ export function PageShell({ children }: PropsWithChildren) {
                         {(usersSearchQuery.data ?? []).map((user) => {
                           const alreadyRequested = requestedUsers[user.username.toLowerCase()]
                           return (
-                            <div key={user.userId} className="flex items-center justify-between rounded-xl border border-primary bg-panel px-2.5 py-2">
-                              <div className="min-w-0">
+                            <div key={user.userId} className="flex items-center gap-2 rounded-xl border border-primary bg-panel px-2.5 py-2">
+                              <Avatar user={user} size="xs" linkToProfile />
+                              <Link
+                                to={`/u/${user.username}`}
+                                className="min-w-0 flex-1"
+                                onClick={() => setSearchOpen(false)}
+                              >
                                 <p className="truncate text-sm font-semibold text-secondary">{user.displayName}</p>
                                 <p className="truncate text-xs text-primary">@{user.username}</p>
-                              </div>
+                              </Link>
                               <button
                                 className="pv-chip shrink-0 rounded-full px-2.5 py-1 text-xs disabled:opacity-50"
                                 disabled={alreadyRequested || sendFriendRequest.isPending}

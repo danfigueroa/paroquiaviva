@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { Avatar } from '@/components/avatar'
 
 type NotificationType =
   | 'PRAYED'
@@ -217,8 +218,10 @@ export function NotificationBell() {
               <p className="pv-muted px-3 py-6 text-center text-xs">Você está em dia. Nada por aqui.</p>
             )}
             {items.map((n) => {
-              const initial = (n.actor?.displayName?.[0] || n.actor?.username?.[0] || '·').toUpperCase()
               const unread = !n.readAt
+              const actorUser = n.actor
+                ? { displayName: n.actor.displayName, username: n.actor.username, avatarUrl: n.actor.avatarUrl }
+                : { displayName: '·' }
               return (
                 <button
                   key={n.id}
@@ -226,17 +229,7 @@ export function NotificationBell() {
                   onClick={() => handleItemClick(n)}
                   className={`flex w-full items-start gap-3 border-b border-primary/15 px-3 py-3 text-left transition last:border-b-0 hover:bg-primary/5 ${unread ? 'bg-primary/5' : ''}`}
                 >
-                  {n.actor?.avatarUrl ? (
-                    <img
-                      src={n.actor.avatarUrl}
-                      alt={n.actor.displayName || n.actor.username}
-                      className="h-9 w-9 shrink-0 rounded-full border border-primary object-cover"
-                    />
-                  ) : (
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary bg-bg text-xs font-bold text-primary">
-                      {initial}
-                    </span>
-                  )}
+                  <Avatar user={actorUser} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm leading-snug text-secondary">{copyFor(n)}</p>
                     <p className="pv-muted mt-0.5 text-[11px]">{relativeTime(n.createdAt)}</p>

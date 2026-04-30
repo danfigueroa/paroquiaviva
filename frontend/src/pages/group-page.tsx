@@ -7,6 +7,7 @@ import { Input } from '@/components/input'
 import { TextArea } from '@/components/text-area'
 import { FeedCard, type FeedCardItem } from '@/components/feed-card'
 import { FeedSkeleton } from '@/components/feed-skeleton'
+import { Avatar } from '@/components/avatar'
 import { api } from '@/lib/api'
 import { prayerActionsFor, type Tradition } from '@/lib/traditions'
 
@@ -429,12 +430,10 @@ function MembersTab({ groupId, myRole, viewerId }: { groupId: string; myRole: Ro
         const canChangeRole = isAdmin && !isSelf
         return (
           <li key={m.userId} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary bg-bg text-sm font-bold text-primary">
-              {(m.displayName?.[0] || m.username?.[0] || 'U').toUpperCase()}
-            </span>
+            <Avatar user={m} size="md" linkToProfile />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="truncate text-sm font-semibold text-secondary">{m.displayName || 'Membro'}</span>
+                <Link to={`/u/${m.username}`} className="truncate text-sm font-semibold text-secondary hover:text-primary">{m.displayName || 'Membro'}</Link>
                 <span className="truncate text-xs text-primary/80">@{m.username}</span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] ${m.role === 'ADMIN' ? 'bg-primary text-onPrimary' : m.role === 'MODERATOR' ? 'bg-primary/15 text-primary' : 'bg-primary/5 text-primary/80'}`}>
                   {roleLabel[m.role]}
@@ -519,23 +518,12 @@ function RequestsTab({ groupId }: { groupId: string }) {
   return (
     <ul className="divide-y divide-primary/20">
       {items.map((req) => {
-        const initial = (req.displayName?.[0] || req.username?.[0] || 'U').toUpperCase()
         return (
           <li key={req.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex min-w-0 items-center gap-3">
-              {req.avatarUrl ? (
-                <img
-                  src={req.avatarUrl}
-                  alt={req.displayName || req.username}
-                  className="h-10 w-10 shrink-0 rounded-full border border-primary object-cover"
-                />
-              ) : (
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary bg-bg text-sm font-bold text-primary">
-                  {initial}
-                </span>
-              )}
+              <Avatar user={req} size="md" linkToProfile />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-secondary">{req.displayName || req.username}</p>
+                <Link to={`/u/${req.username}`} className="block truncate text-sm font-semibold text-secondary hover:text-primary">{req.displayName || req.username}</Link>
                 <p className="truncate text-xs text-primary/80">@{req.username}</p>
                 <p className="pv-muted text-[11px]">Solicitado em {formatDate(req.requestedAt)}</p>
               </div>

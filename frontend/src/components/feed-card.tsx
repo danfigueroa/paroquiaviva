@@ -1,12 +1,14 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import type { PrayerAction } from '@/lib/traditions'
+import { Avatar } from '@/components/avatar'
 
 export type FeedCardItem = {
   id: string
   authorId: string
   authorUsername?: string
   authorDisplayName?: string
+  authorAvatarUrl?: string | null
   title: string
   body: string
   category: string
@@ -68,23 +70,29 @@ function FeedCardComponent({
     item.groupNames?.[0] || (item.groupIds?.[0] ? groupNameById.get(item.groupIds[0]) : undefined)
   const extraGroupsCount = Math.max((item.groupNames?.length ?? 0) - 1, 0)
   const isHit = lastPrayerHit?.requestID === item.id
-  const initial = (item.authorDisplayName?.[0] || item.authorUsername?.[0] || 'U').toUpperCase()
   const isOwner = viewerId === item.authorId
   const fullDate = formatDate(item.createdAt)
+  const authorUser = {
+    displayName: item.authorDisplayName,
+    username: item.authorUsername,
+    avatarUrl: item.authorAvatarUrl
+  }
 
   return (
     <article className={`pv-feed-row group relative flex gap-3 px-4 py-3.5 sm:px-5 ${isHit ? 'pv-card-hit' : ''}`}>
-      <Link to={`/requests/${item.id}`} className="shrink-0" aria-label="Abrir pedido">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary bg-bg text-sm font-bold text-primary">
-          {initial}
-        </span>
-      </Link>
+      <Avatar user={authorUser} size="md" linkToProfile={!!item.authorUsername} />
 
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm">
-          <span className="max-w-[55%] truncate font-semibold text-secondary">
-            {item.authorDisplayName || 'Membro'}
-          </span>
+          {item.authorUsername ? (
+            <Link to={`/u/${item.authorUsername}`} className="max-w-[55%] truncate font-semibold text-secondary hover:text-primary">
+              {item.authorDisplayName || 'Membro'}
+            </Link>
+          ) : (
+            <span className="max-w-[55%] truncate font-semibold text-secondary">
+              {item.authorDisplayName || 'Membro'}
+            </span>
+          )}
           <span className="truncate text-xs text-primary/80">@{item.authorUsername || 'usuario'}</span>
           <span className="text-xs text-primary/50" aria-hidden>·</span>
           <time className="text-xs text-primary/70" dateTime={item.createdAt} title={fullDate}>

@@ -1,21 +1,24 @@
 import { FormEvent, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { PageShell } from '@/components/page-shell'
 import { Input } from '@/components/input'
 import { Button } from '@/components/button'
+import { Avatar } from '@/components/avatar'
 import { api } from '@/lib/api'
 
 type UserSummary = {
   userId: string
   username: string
   displayName: string
-  avatarUrl?: string
+  avatarUrl?: string | null
 }
 
 type Friend = {
   userId: string
   username: string
   displayName: string
+  avatarUrl?: string | null
   connectedAt: string
 }
 
@@ -28,7 +31,6 @@ type FriendRequest = {
 }
 
 export function FriendsPage() {
-  const client = useQueryClient()
   const [query, setQuery] = useState('')
 
   const friendsQuery = useQuery({
@@ -97,12 +99,17 @@ export function FriendsPage() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {(searchQuery.data ?? []).map((user) => (
-            <article key={user.userId} className="rounded-2xl border border-primary bg-panel p-4">
-              <p className="text-sm font-semibold text-secondary">{user.displayName}</p>
-              <p className="pv-muted mt-1 text-xs">@{user.username}</p>
-              <Button className="mt-3 w-full sm:w-auto" disabled={sendRequest.isPending} onClick={() => sendRequest.mutate(user.username)}>
-                Adicionar amigo
-              </Button>
+            <article key={user.userId} className="flex items-start gap-3 rounded-2xl border border-primary bg-panel p-4">
+              <Avatar user={user} size="md" linkToProfile />
+              <div className="min-w-0 flex-1">
+                <Link to={`/u/${user.username}`} className="block truncate text-sm font-semibold text-secondary hover:text-primary">
+                  {user.displayName}
+                </Link>
+                <p className="pv-muted mt-1 truncate text-xs">@{user.username}</p>
+                <Button className="mt-3 w-full sm:w-auto" disabled={sendRequest.isPending} onClick={() => sendRequest.mutate(user.username)}>
+                  Adicionar amigo
+                </Button>
+              </div>
             </article>
           ))}
           {query.trim().length >= 2 && !searchQuery.isLoading && (searchQuery.data ?? []).length === 0 && (
@@ -116,13 +123,18 @@ export function FriendsPage() {
           <h2 className="pv-title text-xl font-semibold text-secondary">Solicitações recebidas</h2>
           <div className="mt-4 space-y-3">
             {(requestsQuery.data ?? []).map((request) => (
-              <article key={request.id} className="rounded-2xl border border-primary bg-panel p-4">
-                <p className="text-sm text-secondary">{request.displayName}</p>
-                <p className="pv-muted mt-1 text-xs">@{request.username}</p>
-                <p className="pv-muted mt-1 text-xs">Recebida em {new Date(request.requestedAt).toLocaleString('pt-BR')}</p>
-                <Button className="mt-3 w-full sm:w-auto" disabled={acceptRequest.isPending} onClick={() => acceptRequest.mutate(request.id)}>
-                  Aceitar amizade
-                </Button>
+              <article key={request.id} className="flex items-start gap-3 rounded-2xl border border-primary bg-panel p-4">
+                <Avatar user={request} size="md" linkToProfile />
+                <div className="min-w-0 flex-1">
+                  <Link to={`/u/${request.username}`} className="block truncate text-sm font-semibold text-secondary hover:text-primary">
+                    {request.displayName}
+                  </Link>
+                  <p className="pv-muted mt-1 truncate text-xs">@{request.username}</p>
+                  <p className="pv-muted mt-1 text-xs">Recebida em {new Date(request.requestedAt).toLocaleString('pt-BR')}</p>
+                  <Button className="mt-3 w-full sm:w-auto" disabled={acceptRequest.isPending} onClick={() => acceptRequest.mutate(request.id)}>
+                    Aceitar amizade
+                  </Button>
+                </div>
               </article>
             ))}
             {!requestsQuery.isLoading && (requestsQuery.data ?? []).length === 0 && (
@@ -135,10 +147,15 @@ export function FriendsPage() {
           <h2 className="pv-title text-xl font-semibold text-secondary">Meus amigos</h2>
           <div className="mt-4 space-y-3">
             {(friendsQuery.data ?? []).map((friend) => (
-              <article key={friend.userId} className="rounded-2xl border border-primary bg-panel p-4">
-                <p className="text-sm font-semibold text-secondary">{friend.displayName}</p>
-                <p className="pv-muted mt-1 text-xs">@{friend.username}</p>
-                <p className="pv-muted mt-1 text-xs">Conectado em {new Date(friend.connectedAt).toLocaleDateString('pt-BR')}</p>
+              <article key={friend.userId} className="flex items-start gap-3 rounded-2xl border border-primary bg-panel p-4">
+                <Avatar user={friend} size="md" linkToProfile />
+                <div className="min-w-0 flex-1">
+                  <Link to={`/u/${friend.username}`} className="block truncate text-sm font-semibold text-secondary hover:text-primary">
+                    {friend.displayName}
+                  </Link>
+                  <p className="pv-muted mt-1 truncate text-xs">@{friend.username}</p>
+                  <p className="pv-muted mt-1 text-xs">Conectado em {new Date(friend.connectedAt).toLocaleDateString('pt-BR')}</p>
+                </div>
               </article>
             ))}
             {!friendsQuery.isLoading && (friendsQuery.data ?? []).length === 0 && (
