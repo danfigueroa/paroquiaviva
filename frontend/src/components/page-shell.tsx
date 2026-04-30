@@ -214,12 +214,14 @@ export function PageShell({ children }: PropsWithChildren) {
   }, [theme])
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-6 sm:px-6">
-      <header className="mb-6 rounded-2xl border border-primary bg-panel/90 p-4 backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
-          <Link to="/" className="flex shrink-0 items-center gap-3" aria-label="Creo — ir para o início">
-            <img src="/creo-icon.png" alt="" className="h-12 w-12 rounded-xl shadow-sm" />
-            <span className="text-2xl font-bold tracking-tight text-secondary">Creo</span>
+    <div className="pv-shell-column mx-auto flex min-h-screen w-full max-w-5xl flex-col">
+      <header className="pv-shell-header sticky top-0 z-40 px-4 pt-4 sm:px-6">
+        <div className="flex items-center justify-between gap-4">
+          <Link to="/" className="group flex shrink-0 items-center gap-3" aria-label="Creo — ir para o início">
+            <span className="pv-brand-mark inline-flex h-16 w-16 items-center justify-center rounded-2xl">
+              <img src="/creo-icon.png" alt="" className="h-14 w-14 rounded-xl object-contain" />
+            </span>
+            <span className="pv-title text-3xl font-extrabold text-secondary">Creo</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -276,7 +278,7 @@ export function PageShell({ children }: PropsWithChildren) {
           </div>
         </div>
 
-        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
+        <div className="mt-4 grid gap-3 pb-3 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
           <div className="overflow-x-auto overflow-y-visible py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <nav className="inline-flex min-w-max flex-nowrap gap-2 text-sm" aria-label="Menu principal">
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/feed">Mural</NavLink>
@@ -378,7 +380,7 @@ export function PageShell({ children }: PropsWithChildren) {
           </div>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 px-4 pb-10 pt-5 sm:px-6">{children}</main>
     </div>
   )
 }
