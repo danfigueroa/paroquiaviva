@@ -1,4 +1,4 @@
-# Deploy — Paróquia Viva (Vercel multi-service)
+# Deploy — Creo (Vercel multi-service)
 
 Stack de produção:
 

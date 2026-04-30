@@ -1,10 +1,10 @@
-# Paróquia Viva
+# Creo
 
-Paróquia Viva is a prayer social platform for parish communities, focused on prayer requests, friendship connections, groups, and safe moderation workflows.
+Creo is a prayer social platform for faith communities (Catholic and evangelical alike), focused on prayer requests, friendship connections, groups, and safe moderation workflows.
 
 ## Product Direction
 
-Paróquia Viva combines social graph and community feeds with prayer-specific privacy and moderation:
+Creo combines social graph and community feeds with prayer-specific privacy and moderation:
 - Home feed centered on friends and group content
 - Public feed as secondary discovery surface
 - Group ownership and join approval flow

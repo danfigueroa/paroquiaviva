@@ -6,7 +6,7 @@ Guia operacional pra agentes que vão trabalhar neste repositório. O objetivo �
 
 ## 1. O que é este projeto
 
-**Paróquia Viva** é uma rede social de oração para comunidades paroquiais. Foco em:
+**Creo** (anteriormente Paróquia Viva) é uma rede social de oração para comunidades de fé — católicas e evangélicas. Foco em:
 
 - Pedidos de oração com privacidade granular (público / só grupo / privado / anônimo)
 - Grupos comunitários (pastorais, células) com papéis (ADMIN > MODERATOR > MEMBER)
