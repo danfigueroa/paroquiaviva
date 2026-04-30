@@ -1211,7 +1211,7 @@ func (r *PostgresRepository) SendFriendRequest(ctx context.Context, fromUserID, 
 	}
 
 	actor := fromUserID
-	_ = insertNotificationOn(ctx, tx, models.CreateNotificationInput{
+	_ = insertNotificationInTx(ctx, tx, models.CreateNotificationInput{
 		UserID:      targetUserID,
 		Type:        models.NotificationTypeFriendRequestReceived,
 		ActorUserID: &actor,
