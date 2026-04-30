@@ -124,8 +124,20 @@ export function PageShell({ children }: PropsWithChildren) {
       setRequestedUsers((prev) => ({ ...prev, [username.toLowerCase()]: true }))
       setSearchNotice('Solicitação de amizade enviada.')
     },
-    onError: () => {
-      setSearchNotice('Não foi possível enviar solicitação de amizade.')
+    onError: (err: any) => {
+      const code = err?.response?.data?.error?.code
+      const message = err?.response?.data?.error?.message
+      if (code === 'FRIEND_REQUEST_EXISTS') {
+        setSearchNotice('Vocês já têm uma solicitação pendente ou amizade ativa.')
+      } else if (code === 'USER_NOT_FOUND') {
+        setSearchNotice('Usuário não encontrado.')
+      } else if (code === 'CANNOT_ADD_SELF') {
+        setSearchNotice('Você não pode se adicionar como amigo.')
+      } else if (message) {
+        setSearchNotice(message)
+      } else {
+        setSearchNotice('Não foi possível enviar solicitação de amizade.')
+      }
     }
   })
 

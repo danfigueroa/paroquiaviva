@@ -1594,6 +1594,21 @@ func insertNotificationOn(ctx context.Context, exec notifyExec, in models.Create
 	return err
 }
 
+// insertNotificationInTx inserts a notification inside a SAVEPOINT so a failure
+// (FK violation, type mismatch, etc.) doesn't poison the outer transaction.
+// Notifications are best-effort: callers ignore the error.
+func insertNotificationInTx(ctx context.Context, tx pgx.Tx, in models.CreateNotificationInput) error {
+	sub, err := tx.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	if err := insertNotificationOn(ctx, sub, in); err != nil {
+		_ = sub.Rollback(ctx)
+		return err
+	}
+	return sub.Commit(ctx)
+}
+
 func nullableStringValue(p *string) string {
 	if p == nil {
 		return ""
