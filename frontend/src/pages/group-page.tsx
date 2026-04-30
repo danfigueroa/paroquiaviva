@@ -8,6 +8,7 @@ import { TextArea } from '@/components/text-area'
 import { FeedCard, type FeedCardItem } from '@/components/feed-card'
 import { FeedSkeleton } from '@/components/feed-skeleton'
 import { Avatar } from '@/components/avatar'
+import { NewRequestModal } from '@/components/new-request-modal'
 import { api } from '@/lib/api'
 import { prayerActionsFor, type Tradition } from '@/lib/traditions'
 
@@ -266,6 +267,7 @@ function GroupMural({
 }) {
   const [page, setPage] = useState(1)
   const [lastHit, setLastHit] = useState<{ requestID: string; actionType: string; fxID: number } | null>(null)
+  const [composerOpen, setComposerOpen] = useState(false)
   const pageSize = 10
 
   const feedQuery = useQuery({
@@ -329,11 +331,21 @@ function GroupMural({
         <div className="px-5 py-10 text-center">
           <p className="text-3xl" aria-hidden>🕊️</p>
           <p className="mt-2 text-sm font-semibold text-secondary">Ainda não há pedidos neste grupo.</p>
-          <Link to="/requests/new" className="mt-3 inline-block text-xs font-semibold text-primary hover:underline">
+          <button
+            type="button"
+            onClick={() => setComposerOpen(true)}
+            className="mt-3 inline-block text-xs font-semibold text-primary hover:underline"
+          >
             Criar pedido
-          </Link>
+          </button>
         </div>
       )}
+      <NewRequestModal
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        defaultGroupId={groupId}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ['group', groupId, 'feed'] })}
+      />
       {items.map((item) => (
         <FeedCard
           key={item.id}

@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { PageShell } from '@/components/page-shell'
 import { api } from '@/lib/api'
 import { FeedCard, type FeedCardItem } from '@/components/feed-card'
 import { FeedSkeleton } from '@/components/feed-skeleton'
+import { Avatar } from '@/components/avatar'
+import { NewRequestModal } from '@/components/new-request-modal'
 import { prayerActionsFor, type Tradition } from '@/lib/traditions'
 
 type FeedItem = FeedCardItem
 
 type FeedScope = 'home' | 'public' | 'groups' | 'friends'
-type ProfileMini = { id: string; displayName?: string; username?: string; tradition?: Tradition }
+type ProfileMini = { id: string; displayName?: string; username?: string; avatarUrl?: string | null; tradition?: Tradition }
 type GroupLite = { id: string; name: string }
 type FeedPagination = { page: number; pageSize: number; total: number; totalPages: number }
 type FeedResponse = { items: FeedItem[]; pagination: FeedPagination }
@@ -49,8 +51,8 @@ function formatPostDate(value: string) {
 
 export function FeedPage() {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const [lastPrayerHit, setLastPrayerHit] = useState<{ requestID: string; actionType: string; fxID: number } | null>(null)
+  const [composerOpen, setComposerOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const rawScope = searchParams.get('scope') as FeedScope | null
   const scope: FeedScope = rawScope && tabs.some((tab) => tab.scope === rawScope) ? rawScope : 'home'
@@ -144,7 +146,6 @@ export function FeedPage() {
   const totalPages = Math.max(feedData?.pagination?.totalPages ?? 1, 1)
   const isUnauthorized = (query.error as any)?.response?.status === 401
   const showSkeleton = query.isLoading && !feedData
-  const viewerInitial = (profileQuery.data?.displayName?.[0] || profileQuery.data?.username?.[0] || 'V').toUpperCase()
 
   useEffect(() => {
     if (!lastPrayerHit) {
@@ -243,12 +244,18 @@ export function FeedPage() {
         {profileQuery.data?.id && (
           <button
             type="button"
-            onClick={() => navigate('/requests/new')}
+            onClick={() => setComposerOpen(true)}
             className="pv-compose-box group flex w-full items-start gap-3 border-b border-primary/20 py-5 text-left sm:gap-4 sm:py-6"
           >
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-bg text-base font-bold text-primary shadow-sm">
-              {viewerInitial}
-            </span>
+            <Avatar
+              user={{
+                displayName: profileQuery.data.displayName,
+                username: profileQuery.data.username,
+                avatarUrl: profileQuery.data.avatarUrl
+              }}
+              size="lg"
+              className="shadow-sm"
+            />
             <span className="min-w-0 flex-1">
               <span className="block text-lg font-medium text-secondary/80 transition group-hover:text-primary sm:text-xl">
                 Compartilhe uma intenção…
@@ -281,12 +288,13 @@ export function FeedPage() {
               <p className="text-3xl" aria-hidden>🕊️</p>
               <p className="mt-2 text-sm font-semibold text-secondary">Ainda não há pedidos neste feed.</p>
               <p className="pv-muted mt-1 text-xs">Seja o primeiro a compartilhar uma intenção.</p>
-              <Link
-                to="/requests/new"
+              <button
+                type="button"
+                onClick={() => setComposerOpen(true)}
                 className="mt-4 inline-flex items-center rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-onPrimary"
               >
                 Criar pedido
-              </Link>
+              </button>
             </div>
           )}
 
@@ -343,6 +351,17 @@ export function FeedPage() {
           </div>
         )}
       </div>
+      <NewRequestModal
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        onCreated={(visibility) => {
+          if (visibility === 'PUBLIC') {
+            setSearchParams({ scope: 'public', page: '1' })
+          } else {
+            setSearchParams({ scope: 'home', page: '1' })
+          }
+        }}
+      />
     </PageShell>
   )
 }
