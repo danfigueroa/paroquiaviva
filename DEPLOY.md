@@ -44,10 +44,25 @@ Pegue a URL Vercel final (ou um palpite, ex: `https://paroquiaviva.vercel.app`) 
    cd backend
    migrate -path ./internal/db/migrations \
      -database "postgresql://postgres:<pwd>@db.<ref>.supabase.co:5432/postgres" \
-     version     # deve retornar 6
+     version     # deve refletir a maior NNNNNN_ na pasta de migrations
    ```
 
    Use a string **direta** (porta 5432). Não o pooler.
+
+4. **Storage — bucket `avatars`** (one-time, necessário pra upload de fotos de perfil):
+   - Supabase Dashboard → Storage → **New bucket** → nome `avatars`, **Public** = ON.
+   - Em SQL Editor, criar policies que limitam upload ao próprio usuário:
+     ```sql
+     create policy "avatars are publicly readable"
+       on storage.objects for select to public
+       using ( bucket_id = 'avatars' );
+
+     create policy "users manage their own avatar"
+       on storage.objects for all to authenticated
+       using ( bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text )
+       with check ( bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text );
+     ```
+   - Convenção de path: `avatars/{user_id}/avatar-{timestamp}.{ext}`. O timestamp evita CDN cache stale após troca de imagem.
 
 ---
 
