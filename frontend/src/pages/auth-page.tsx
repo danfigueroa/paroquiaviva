@@ -9,6 +9,29 @@ import { Tradition, traditionOptions } from '@/lib/traditions'
 
 type AuthMode = 'signin' | 'signup'
 
+function translateAuthError(raw: string): string {
+  const message = (raw || '').toLowerCase()
+  if (message.includes('email not confirmed')) {
+    return 'Você ainda não confirmou seu e-mail. Abra o link que enviamos na sua caixa de entrada.'
+  }
+  if (message.includes('invalid login credentials') || message.includes('invalid credentials')) {
+    return 'E-mail ou senha incorretos.'
+  }
+  if (message.includes('user already registered') || message.includes('already registered')) {
+    return 'Já existe uma conta com este e-mail. Tente entrar em vez de criar.'
+  }
+  if (message.includes('password should be at least')) {
+    return 'A senha precisa ter ao menos 6 caracteres.'
+  }
+  if (message.includes('rate limit') || message.includes('too many')) {
+    return 'Muitas tentativas. Aguarde um instante e tente de novo.'
+  }
+  if (message.includes('signup') && message.includes('disabled')) {
+    return 'Cadastros estão desativados no momento.'
+  }
+  return raw || 'Algo deu errado. Tente novamente em instantes.'
+}
+
 export function AuthPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -56,7 +79,7 @@ export function AuthPage() {
 
     try {
       if (!supabase) {
-        setError('Configuração do Supabase ausente no frontend.')
+        setError('Configuração do Supabase ausente. Avise o time pra conferir as variáveis de ambiente.')
         return
       }
       if (mode === 'signup') {
@@ -70,19 +93,28 @@ export function AuthPage() {
           setError('Use um @username de 3 a 30 caracteres, apenas letras minúsculas, números e _.')
           return
         }
-
-        const availability = await api.get<{ available: boolean }>('/username-availability', {
-          params: { username: normalizedUsername }
-        })
-        if (!availability.data.available) {
-          setError('Este @username já está em uso.')
+        if (!email.trim() || password.length < 6) {
+          setError('Informe um e-mail válido e uma senha com ao menos 6 caracteres.')
           return
+        }
+
+        try {
+          const availability = await api.get<{ available: boolean }>('/username-availability', {
+            params: { username: normalizedUsername }
+          })
+          if (!availability.data.available) {
+            setError('Este @username já está em uso.')
+            return
+          }
+        } catch {
+          // backend pode estar fora — segue o cadastro; conflito real volta como erro do Supabase ou na primeira request autenticada
         }
 
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}/auth`,
             data: {
               username: normalizedUsername,
               display_name: normalizedDisplayName,
@@ -91,10 +123,10 @@ export function AuthPage() {
           }
         })
         if (signUpError) {
-          setError(signUpError.message)
+          setError(translateAuthError(signUpError.message))
           return
         }
-        setInfo('Conta criada. Verifique seu e-mail para confirmar o cadastro.')
+        setInfo('Conta criada. Enviamos um e-mail de confirmação — clique no link pra entrar.')
         return
       }
 
@@ -103,18 +135,25 @@ export function AuthPage() {
         password
       })
       if (signInError) {
-        setError(signInError.message)
+        setError(translateAuthError(signInError.message))
         return
       }
 
       const token = data.session?.access_token
       if (!token) {
-        setError('Não foi possível iniciar sessão.')
+        setError('Não foi possível iniciar sessão. Tente novamente em instantes.')
         return
       }
 
       setAccessToken(token)
       navigate(nextPath, { replace: true })
+    } catch (err: any) {
+      const message = err?.message || ''
+      if (message.toLowerCase().includes('network')) {
+        setError('Não conseguimos falar com o servidor. Verifique sua conexão e tente de novo.')
+      } else {
+        setError('Algo deu errado. Tente novamente em instantes.')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -141,7 +180,7 @@ export function AuthPage() {
         }
       })
       if (otpError) {
-        setError(otpError.message)
+        setError(translateAuthError(otpError.message))
         return
       }
       setInfo('Enviamos um e-mail com link de acesso único.')
@@ -168,7 +207,7 @@ export function AuthPage() {
         redirectTo: `${window.location.origin}/auth`
       })
       if (resetError) {
-        setError(resetError.message)
+        setError(translateAuthError(resetError.message))
         return
       }
       setInfo('E-mail de redefinição enviado com sucesso.')

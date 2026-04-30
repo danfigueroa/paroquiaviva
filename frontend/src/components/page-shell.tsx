@@ -73,16 +73,17 @@ export function PageShell({ children }: PropsWithChildren) {
   }, [searchTerm])
 
   const normalizedSearch = debouncedSearchTerm.trim()
-  const normalizedGroupSearch = normalizedSearch.replace(/^@+/, '').trim()
-  const canSearchUsers = normalizedSearch.length >= 2 && !profileQuery.isError
+  const normalizedUserSearch = normalizedSearch.replace(/^@+/, '').trim()
+  const normalizedGroupSearch = normalizedUserSearch
+  const canSearchUsers = normalizedUserSearch.length >= 2 && !profileQuery.isError
   const canSearchGroups = normalizedGroupSearch.length >= 2 && !profileQuery.isError
 
   const usersSearchQuery = useQuery({
-    queryKey: ['shell-search-users', normalizedSearch],
+    queryKey: ['shell-search-users', normalizedUserSearch],
     enabled: canSearchUsers,
     queryFn: async () => {
       const res = await api.get<{ items: SearchUser[] }>('/users/search', {
-        params: { q: normalizedSearch }
+        params: { q: normalizedUserSearch }
       })
       return res.data.items
     }

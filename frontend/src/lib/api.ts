@@ -8,7 +8,10 @@ function resolveBaseURL() {
     return envURL
   }
   const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
-  return `http://${host}:8080/api/v1`
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return `http://${host}:8080/api/v1`
+  }
+  return '/_/backend/api/v1'
 }
 
 export const api = axios.create({

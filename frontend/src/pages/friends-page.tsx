@@ -49,12 +49,13 @@ export function FriendsPage() {
     }
   })
 
+  const normalizedQuery = query.trim().replace(/^@+/, '')
   const searchQuery = useQuery({
-    queryKey: ['friend-search', query],
-    enabled: query.trim().length >= 2,
+    queryKey: ['friend-search', normalizedQuery],
+    enabled: normalizedQuery.length >= 2,
     queryFn: async () => {
       const res = await api.get<{ items: UserSummary[] }>('/users/search', {
-        params: { q: query }
+        params: { q: normalizedQuery }
       })
       return res.data.items
     }
