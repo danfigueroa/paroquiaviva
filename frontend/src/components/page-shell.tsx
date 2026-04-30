@@ -283,7 +283,6 @@ export function PageShell({ children }: PropsWithChildren) {
             <nav className="inline-flex min-w-max flex-nowrap gap-2 text-sm" aria-label="Menu principal">
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/feed">Mural</NavLink>
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/friends">Amigos</NavLink>
-              <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/requests/new">Novo Pedido</NavLink>
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/groups">Grupos</NavLink>
               <NavLink className={({ isActive }) => navClass('pv-chip whitespace-nowrap rounded-full px-3 py-1.5', isActive)} to="/groups/new">Criar Grupo</NavLink>
             </nav>

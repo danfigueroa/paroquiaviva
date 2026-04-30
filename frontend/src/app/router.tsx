@@ -9,9 +9,6 @@ const GroupPage = lazy(() => import('@/pages/group-page').then((m) => ({ default
 const GroupsPage = lazy(() => import('@/pages/groups-page').then((m) => ({ default: m.GroupsPage })))
 const NewGroupPage = lazy(() => import('@/pages/new-group-page').then((m) => ({ default: m.NewGroupPage })))
 const FriendsPage = lazy(() => import('@/pages/friends-page').then((m) => ({ default: m.FriendsPage })))
-const NewRequestPage = lazy(() =>
-  import('@/pages/new-request-page').then((m) => ({ default: m.NewRequestPage }))
-)
 const RequestDetailPage = lazy(() =>
   import('@/pages/request-detail-page').then((m) => ({ default: m.RequestDetailPage }))
 )
@@ -42,7 +39,6 @@ export const router = createBrowserRouter([
       { path: '/groups/new', element: lazyRoute(<NewGroupPage />) },
       { path: '/groups/:id', element: lazyRoute(<GroupPage />) },
       { path: '/friends', element: lazyRoute(<FriendsPage />) },
-      { path: '/requests/new', element: lazyRoute(<NewRequestPage />) },
       { path: '/requests/:id', element: lazyRoute(<RequestDetailPage />) },
       { path: '/profile', element: lazyRoute(<ProfilePage />) },
       { path: '/u/:username', element: lazyRoute(<PublicProfilePage />) },
