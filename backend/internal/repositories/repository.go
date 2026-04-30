@@ -27,10 +27,14 @@ var ErrPrayerRequestNotFound = errors.New("prayer request not found")
 var ErrPrayerRequestForbidden = errors.New("prayer request forbidden")
 var ErrGroupNotFound = errors.New("group not found")
 var ErrGroupMembershipNotFound = errors.New("group membership not found")
+var ErrUserNotFound = errors.New("user not found")
 
 type Repository interface {
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
-	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (models.User, error)
+	UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, bio *string) (models.User, error)
+	GetFriendshipState(ctx context.Context, viewerID, ownerID string) (models.PublicFriendshipState, *string, error)
+	GetUserStats(ctx context.Context, userID string) (models.ProfileStats, error)
 	UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName, preferredTradition string) error
 	SetUserTradition(ctx context.Context, userID string, tradition models.Tradition) (models.User, error)
 	UsernameExists(ctx context.Context, username string) (bool, error)
@@ -86,21 +90,37 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) GetUserByID(ctx context.Context, userID string) (models.User, error) {
 	var u models.User
 	err := r.db.QueryRow(ctx, `
-		SELECT id::text, email, username, display_name, avatar_url, tradition, created_at, updated_at
+		SELECT id::text, email, username, display_name, avatar_url, bio, tradition, created_at, updated_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
-	`, userID).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
+	`, userID).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
 }
 
-func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error) {
+func (r *PostgresRepository) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
+	var u models.User
+	err := r.db.QueryRow(ctx, `
+		SELECT id::text, email, username, display_name, avatar_url, bio, tradition, created_at, updated_at
+		FROM users
+		WHERE LOWER(username) = LOWER($1) AND deleted_at IS NULL
+	`, username).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.User{}, ErrUserNotFound
+		}
+		return models.User{}, err
+	}
+	return u, nil
+}
+
+func (r *PostgresRepository) UpdateUserProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, bio *string) (models.User, error) {
 	var u models.User
 	err := r.db.QueryRow(ctx, `
 		UPDATE users
-		SET display_name = $2, username = $3, avatar_url = $4, updated_at = NOW()
+		SET display_name = $2, username = $3, avatar_url = $4, bio = $5, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id::text, email, username, display_name, avatar_url, tradition, created_at, updated_at
-	`, userID, displayName, username, avatarURL).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
+		RETURNING id::text, email, username, display_name, avatar_url, bio, tradition, created_at, updated_at
+	`, userID, displayName, username, avatarURL, bio).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "username") {
@@ -116,9 +136,105 @@ func (r *PostgresRepository) SetUserTradition(ctx context.Context, userID string
 		UPDATE users
 		SET tradition = $2, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id::text, email, username, display_name, avatar_url, tradition, created_at, updated_at
-	`, userID, tradition).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
+		RETURNING id::text, email, username, display_name, avatar_url, bio, tradition, created_at, updated_at
+	`, userID, tradition).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Bio, &u.Tradition, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
+}
+
+func (r *PostgresRepository) GetFriendshipState(ctx context.Context, viewerID, ownerID string) (models.PublicFriendshipState, *string, error) {
+	if viewerID == ownerID {
+		return models.PublicFriendshipSelf, nil, nil
+	}
+	var (
+		id       string
+		userID   string
+		friendID string
+		status   string
+	)
+	err := r.db.QueryRow(ctx, `
+		SELECT id::text, user_id::text, friend_user_id::text, status
+		FROM friendships
+		WHERE (user_id = $1 AND friend_user_id = $2)
+		   OR (user_id = $2 AND friend_user_id = $1)
+		LIMIT 1
+	`, viewerID, ownerID).Scan(&id, &userID, &friendID, &status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.PublicFriendshipNone, nil, nil
+		}
+		return "", nil, err
+	}
+	switch status {
+	case "ACCEPTED":
+		return models.PublicFriendshipFriend, nil, nil
+	case "PENDING":
+		if userID == viewerID {
+			return models.PublicFriendshipPendingOut, nil, nil
+		}
+		idCopy := id
+		return models.PublicFriendshipPendingIn, &idCopy, nil
+	default:
+		return models.PublicFriendshipNone, nil, nil
+	}
+}
+
+func (r *PostgresRepository) GetUserStats(ctx context.Context, userID string) (models.ProfileStats, error) {
+	stats := models.ProfileStats{
+		PrayerActionsByType:     map[string]int{},
+		PrayerActionsByCategory: map[string]int{},
+	}
+	if err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM prayer_requests
+		WHERE author_id = $1 AND deleted_at IS NULL
+	`, userID).Scan(&stats.RequestsCreated); err != nil {
+		return models.ProfileStats{}, err
+	}
+
+	rows, err := r.db.Query(ctx, `
+		SELECT action_type, COUNT(*)::int
+		FROM prayer_actions
+		WHERE user_id = $1
+		GROUP BY action_type
+	`, userID)
+	if err != nil {
+		return models.ProfileStats{}, err
+	}
+	for rows.Next() {
+		var t string
+		var c int
+		if err = rows.Scan(&t, &c); err != nil {
+			rows.Close()
+			return models.ProfileStats{}, err
+		}
+		stats.PrayerActionsByType[t] = c
+		stats.PrayerActionsTotal += c
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return models.ProfileStats{}, err
+	}
+
+	rows, err = r.db.Query(ctx, `
+		SELECT pr.category::text, COUNT(*)::int
+		FROM prayer_actions pa
+		INNER JOIN prayer_requests pr ON pr.id = pa.prayer_request_id
+		WHERE pa.user_id = $1 AND pr.deleted_at IS NULL
+		GROUP BY pr.category
+	`, userID)
+	if err != nil {
+		return models.ProfileStats{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cat string
+		var c int
+		if err = rows.Scan(&cat, &c); err != nil {
+			return models.ProfileStats{}, err
+		}
+		stats.PrayerActionsByCategory[cat] = c
+	}
+	return stats, rows.Err()
 }
 
 func (r *PostgresRepository) UpsertAuthUser(ctx context.Context, userID, email, preferredUsername, preferredDisplayName, preferredTradition string) error {
@@ -914,7 +1030,7 @@ func (r *PostgresRepository) enrichPrayerRequests(ctx context.Context, userID st
 	}
 
 	authorRows, err := r.db.Query(ctx, `
-		SELECT id::text, username, display_name
+		SELECT id::text, username, display_name, avatar_url
 		FROM users
 		WHERE id = ANY($1::uuid[])
 	`, authorIDs)
@@ -926,18 +1042,22 @@ func (r *PostgresRepository) enrichPrayerRequests(ctx context.Context, userID st
 	authorByID := make(map[string]struct {
 		username    string
 		displayName string
+		avatarURL   *string
 	}, len(authorIDs))
 	for authorRows.Next() {
 		var id, username, displayName string
-		if err = authorRows.Scan(&id, &username, &displayName); err != nil {
+		var avatarURL *string
+		if err = authorRows.Scan(&id, &username, &displayName, &avatarURL); err != nil {
 			return err
 		}
 		authorByID[id] = struct {
 			username    string
 			displayName string
+			avatarURL   *string
 		}{
 			username:    username,
 			displayName: displayName,
+			avatarURL:   avatarURL,
 		}
 	}
 	if err = authorRows.Err(); err != nil {
@@ -951,6 +1071,7 @@ func (r *PostgresRepository) enrichPrayerRequests(ctx context.Context, userID st
 		}
 		items[i].AuthorUsername = author.username
 		items[i].AuthorDisplayName = author.displayName
+		items[i].AuthorAvatarURL = author.avatarURL
 	}
 
 	groupRows, err := r.db.Query(ctx, `

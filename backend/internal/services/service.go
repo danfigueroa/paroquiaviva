@@ -31,6 +31,7 @@ var ErrPermissionDenied = errors.New("permission denied")
 var ErrLastAdmin = errors.New("cannot remove the last admin")
 var ErrCannotTargetSelf = errors.New("cannot target self for this action")
 var ErrInvalidGroupRole = errors.New("invalid group role")
+var ErrInvalidBio = errors.New("invalid bio")
 
 func NewService(repo repositories.Repository) *Service {
 	return &Service{repo: repo}
@@ -40,7 +41,7 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (models.User, e
 	return s.repo.GetUserByID(ctx, userID)
 }
 
-func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, username string, avatarURL *string) (models.User, error) {
+func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, username string, avatarURL *string, bio *string) (models.User, error) {
 	displayName = strings.TrimSpace(displayName)
 	username = normalizeUsername(username)
 	if displayName == "" {
@@ -59,7 +60,46 @@ func (s *Service) UpdateProfile(ctx context.Context, userID, displayName, userna
 	if !matched {
 		return models.User{}, ErrInvalidUsername
 	}
-	return s.repo.UpdateUserProfile(ctx, userID, displayName, username, avatarURL)
+	if bio != nil {
+		trimmed := strings.TrimSpace(*bio)
+		if len([]rune(trimmed)) > 280 {
+			return models.User{}, ErrInvalidBio
+		}
+		if trimmed == "" {
+			bio = nil
+		} else {
+			bio = &trimmed
+		}
+	}
+	return s.repo.UpdateUserProfile(ctx, userID, displayName, username, avatarURL, bio)
+}
+
+func (s *Service) GetPublicProfile(ctx context.Context, viewerID, username string) (models.PublicProfile, error) {
+	username = normalizeUsername(username)
+	if username == "" {
+		return models.PublicProfile{}, repositories.ErrUserNotFound
+	}
+	owner, err := s.repo.GetUserByUsername(ctx, username)
+	if err != nil {
+		return models.PublicProfile{}, err
+	}
+	state, incomingID, err := s.repo.GetFriendshipState(ctx, viewerID, owner.ID)
+	if err != nil {
+		return models.PublicProfile{}, err
+	}
+	profile := models.PublicProfile{
+		User:                owner,
+		FriendshipStatus:    state,
+		IncomingFriendReqID: incomingID,
+	}
+	if state == models.PublicFriendshipSelf || state == models.PublicFriendshipFriend {
+		stats, err := s.repo.GetUserStats(ctx, owner.ID)
+		if err != nil {
+			return models.PublicProfile{}, err
+		}
+		profile.Stats = &stats
+	}
+	return profile, nil
 }
 
 func (s *Service) IsUsernameAvailable(ctx context.Context, username string) (bool, error) {

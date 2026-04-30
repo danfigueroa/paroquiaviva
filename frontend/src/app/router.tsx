@@ -16,6 +16,9 @@ const RequestDetailPage = lazy(() =>
   import('@/pages/request-detail-page').then((m) => ({ default: m.RequestDetailPage }))
 )
 const ProfilePage = lazy(() => import('@/pages/profile-page').then((m) => ({ default: m.ProfilePage })))
+const PublicProfilePage = lazy(() =>
+  import('@/pages/public-profile-page').then((m) => ({ default: m.PublicProfilePage }))
+)
 const ModerationPage = lazy(() =>
   import('@/pages/moderation-page').then((m) => ({ default: m.ModerationPage }))
 )
@@ -42,6 +45,7 @@ export const router = createBrowserRouter([
       { path: '/requests/new', element: lazyRoute(<NewRequestPage />) },
       { path: '/requests/:id', element: lazyRoute(<RequestDetailPage />) },
       { path: '/profile', element: lazyRoute(<ProfilePage />) },
+      { path: '/u/:username', element: lazyRoute(<PublicProfilePage />) },
       { path: '/moderation', element: lazyRoute(<ModerationPage />) }
     ]
   }

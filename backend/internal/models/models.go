@@ -85,9 +85,34 @@ type User struct {
 	Username    string    `json:"username"`
 	DisplayName string    `json:"displayName"`
 	AvatarURL   *string   `json:"avatarUrl,omitempty"`
+	Bio         *string   `json:"bio,omitempty"`
 	Tradition   Tradition `json:"tradition"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type PublicFriendshipState string
+
+const (
+	PublicFriendshipSelf       PublicFriendshipState = "SELF"
+	PublicFriendshipFriend     PublicFriendshipState = "FRIEND"
+	PublicFriendshipPendingOut PublicFriendshipState = "PENDING_OUT"
+	PublicFriendshipPendingIn  PublicFriendshipState = "PENDING_IN"
+	PublicFriendshipNone       PublicFriendshipState = "NONE"
+)
+
+type ProfileStats struct {
+	RequestsCreated         int            `json:"requestsCreated"`
+	PrayerActionsTotal      int            `json:"prayerActionsTotal"`
+	PrayerActionsByType     map[string]int `json:"prayerActionsByType"`
+	PrayerActionsByCategory map[string]int `json:"prayerActionsByCategory"`
+}
+
+type PublicProfile struct {
+	User                  User                  `json:"user"`
+	FriendshipStatus      PublicFriendshipState `json:"friendshipStatus"`
+	IncomingFriendReqID   *string               `json:"incomingFriendRequestId,omitempty"`
+	Stats                 *ProfileStats         `json:"stats,omitempty"`
 }
 
 type PrayerRequest struct {
@@ -95,6 +120,7 @@ type PrayerRequest struct {
 	AuthorID          string           `json:"authorId"`
 	AuthorUsername    string           `json:"authorUsername,omitempty"`
 	AuthorDisplayName string           `json:"authorDisplayName,omitempty"`
+	AuthorAvatarURL   *string          `json:"authorAvatarUrl,omitempty"`
 	Title             string           `json:"title"`
 	Body              string           `json:"body"`
 	Category          PrayerCategory   `json:"category"`

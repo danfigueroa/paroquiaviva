@@ -1,24 +1,35 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageShell } from '@/components/page-shell'
+import { Avatar } from '@/components/avatar'
 import { api } from '@/lib/api'
 import { Input } from '@/components/input'
+import { TextArea } from '@/components/text-area'
 import { Button } from '@/components/button'
 import { Tradition, traditionOptions } from '@/lib/traditions'
+import { AvatarUploadError, AVATAR_MAX_BYTES, AVATAR_ACCEPTED_MIMES, uploadAvatar } from '@/lib/supabase'
+
+const BIO_MAX = 280
 
 type Profile = {
   id: string
   username: string
   displayName: string
+  avatarUrl?: string | null
+  bio?: string | null
   tradition: Tradition
 }
 
 export function ProfilePage() {
   const queryClient = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
+  const [bio, setBio] = useState('')
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
+  const [avatarStatus, setAvatarStatus] = useState('')
+  const [avatarError, setAvatarError] = useState('')
   const [traditionStatus, setTraditionStatus] = useState('')
 
   const profile = useQuery({
@@ -29,6 +40,21 @@ export function ProfilePage() {
     }
   })
 
+  useEffect(() => {
+    if (!profile.data) return
+    setDisplayName(profile.data.displayName || '')
+    setUsername(profile.data.username || '')
+    setBio(profile.data.bio || '')
+  }, [profile.data])
+
+  const invalidateProfileEverywhere = async () => {
+    await Promise.all([
+      profile.refetch(),
+      queryClient.invalidateQueries({ queryKey: ['profile', 'shell'] }),
+      queryClient.invalidateQueries({ queryKey: ['profile', 'public'] })
+    ])
+  }
+
   const traditionMutation = useMutation({
     mutationFn: async (tradition: Tradition) => {
       const res = await api.patch<Profile>('/profile/tradition', { tradition })
@@ -37,7 +63,7 @@ export function ProfilePage() {
     onSuccess: async () => {
       setTraditionStatus('Tradição atualizada. Seu feed foi ajustado.')
       await Promise.all([
-        profile.refetch(),
+        invalidateProfileEverywhere(),
         queryClient.invalidateQueries({ queryKey: ['profile', 'feed'] }),
         queryClient.invalidateQueries({ queryKey: ['feed'] })
       ])
@@ -47,25 +73,19 @@ export function ProfilePage() {
     }
   })
 
-  useEffect(() => {
-    if (!profile.data) {
-      return
-    }
-    setDisplayName(profile.data.displayName || '')
-    setUsername(profile.data.username || '')
-  }, [profile.data])
-
   const saveProfile = useMutation({
     mutationFn: async () => {
+      const trimmedBio = bio.trim()
       await api.patch('/profile', {
         displayName,
-        username
+        username,
+        bio: trimmedBio === '' ? null : trimmedBio
       })
     },
     onSuccess: async () => {
       setError('')
       setStatus('Perfil atualizado com sucesso.')
-      await profile.refetch()
+      await invalidateProfileEverywhere()
     },
     onError: (err: any) => {
       setStatus('')
@@ -76,6 +96,53 @@ export function ProfilePage() {
       setError(err?.response?.data?.error?.message || err?.message || 'Não foi possível salvar o perfil.')
     }
   })
+
+  const updateAvatar = useMutation({
+    mutationFn: async (avatarUrl: string | null) => {
+      const res = await api.patch<Profile>('/profile', {
+        displayName,
+        username,
+        avatarUrl
+      })
+      return res.data
+    },
+    onSuccess: async (_data, variables) => {
+      setAvatarError('')
+      setAvatarStatus(variables ? 'Foto atualizada.' : 'Foto removida.')
+      await invalidateProfileEverywhere()
+    },
+    onError: () => {
+      setAvatarStatus('')
+      setAvatarError('Não foi possível salvar a nova foto.')
+    }
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!profile.data) throw new Error('Perfil não carregou ainda.')
+      return uploadAvatar(file, profile.data.id)
+    },
+    onSuccess: (publicUrl) => {
+      updateAvatar.mutate(publicUrl)
+    },
+    onError: (err: unknown) => {
+      setAvatarStatus('')
+      if (err instanceof AvatarUploadError) {
+        setAvatarError(err.message)
+      } else {
+        setAvatarError('Falha ao enviar a imagem.')
+      }
+    }
+  })
+
+  function onFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setAvatarError('')
+    setAvatarStatus('')
+    uploadMutation.mutate(file)
+  }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -89,18 +156,83 @@ export function ProfilePage() {
       setError('Use um @username de 3 a 30 caracteres, apenas letras minúsculas, números e _.')
       return
     }
+    if (bio.trim().length > BIO_MAX) {
+      setError(`A bio precisa ter até ${BIO_MAX} caracteres.`)
+      return
+    }
     saveProfile.mutate()
   }
+
+  const avatarUploadBusy = uploadMutation.isPending || updateAvatar.isPending
+  const previewUser = {
+    displayName: displayName || profile.data?.displayName,
+    username: username || profile.data?.username,
+    avatarUrl: profile.data?.avatarUrl ?? null
+  }
+  const bioCount = bio.trim().length
+  const acceptAttr = AVATAR_ACCEPTED_MIMES.join(',')
+  const maxMb = Math.round(AVATAR_MAX_BYTES / (1024 * 1024))
 
   return (
     <PageShell>
       <section className="pv-panel rounded-3xl p-6 sm:p-7">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Conta</p>
-        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Meu perfil</h1>
-        <p className="pv-muted mt-2 text-sm">Defina seu nome público e o @username único usado para amizades no sistema.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Foto de perfil</p>
+        <h1 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Sua imagem</h1>
+        <p className="pv-muted mt-2 text-sm">
+          Aparece no header, nos cards do mural e na sua página pública. JPG, PNG ou WEBP até {maxMb} MB.
+        </p>
 
-        <form className="mt-6 grid gap-4 lg:grid-cols-2" onSubmit={onSubmit}>
-          <div className="space-y-3">
+        <div className="mt-5 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+          <Avatar user={previewUser} size="xl" />
+          <div className="flex-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={acceptAttr}
+              className="hidden"
+              onChange={onFileChange}
+              aria-label="Selecionar foto de perfil"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={avatarUploadBusy}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadMutation.isPending ? 'Enviando…' : profile.data?.avatarUrl ? 'Trocar foto' : 'Enviar foto'}
+              </Button>
+              {profile.data?.avatarUrl && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={avatarUploadBusy}
+                  onClick={() => {
+                    setAvatarError('')
+                    setAvatarStatus('')
+                    updateAvatar.mutate(null)
+                  }}
+                >
+                  Remover foto
+                </Button>
+              )}
+            </div>
+            {avatarStatus && (
+              <p role="status" className="mt-3 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{avatarStatus}</p>
+            )}
+            {avatarError && (
+              <p role="alert" className="mt-3 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{avatarError}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="pv-panel mt-5 rounded-3xl p-6 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Conta</p>
+        <h2 className="pv-title mt-2 text-2xl font-bold text-secondary sm:text-3xl">Meu perfil</h2>
+        <p className="pv-muted mt-2 text-sm">Nome público, @username e bio mostrados na sua página de perfil.</p>
+
+        <form className="mt-6 grid gap-5 lg:grid-cols-2" onSubmit={onSubmit}>
+          <div className="space-y-4">
             <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-primary">
               Nome de exibição
               <Input onChange={(e) => setDisplayName(e.target.value)} placeholder="Como seu nome aparece no app" value={displayName} />
@@ -112,15 +244,35 @@ export function ProfilePage() {
               <Input onChange={(e) => setUsername(e.target.value.replace(/@/g, '').toLowerCase())} placeholder="seu_username" value={username} />
               <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Identificador único para encontrar e adicionar você.</span>
             </label>
+
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              <span className="flex items-baseline justify-between gap-2">
+                <span>Bio</span>
+                <span className={`text-[11px] tabular-nums ${bioCount > BIO_MAX ? 'text-primary' : 'pv-muted'}`}>{bioCount}/{BIO_MAX}</span>
+              </span>
+              <TextArea
+                className="mt-1.5 min-h-[100px]"
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Conte um pouco sobre você. Aparece no seu perfil público."
+                value={bio}
+              />
+              <span className="pv-muted mt-1 block text-[11px] normal-case tracking-normal">Visível para qualquer pessoa que abrir seu perfil.</span>
+            </label>
           </div>
 
           <div className="rounded-2xl border border-primary bg-panel p-4">
             <p className="text-sm text-secondary">Prévia do perfil</p>
-            <p className="mt-3 text-lg font-semibold text-secondary">{displayName || 'Seu nome'}</p>
-            <p className="pv-muted mt-1 text-sm">@{username || 'username'}</p>
+            <div className="mt-4 flex items-center gap-3">
+              <Avatar user={previewUser} size="lg" />
+              <div className="min-w-0">
+                <p className="truncate text-lg font-semibold text-secondary">{displayName || 'Seu nome'}</p>
+                <p className="pv-muted truncate text-sm">@{username || 'username'}</p>
+              </div>
+            </div>
+            {bio.trim() && <p className="pv-muted mt-3 whitespace-pre-line text-sm leading-relaxed text-secondary/90">{bio}</p>}
 
-            {status && <p className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{status}</p>}
-            {error && <p className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{error}</p>}
+            {status && <p role="status" className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{status}</p>}
+            {error && <p role="alert" className="mt-4 rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{error}</p>}
 
             <Button className="mt-5 w-full sm:w-auto" disabled={saveProfile.isPending} type="submit">
               {saveProfile.isPending ? 'Salvando...' : 'Salvar alterações'}
