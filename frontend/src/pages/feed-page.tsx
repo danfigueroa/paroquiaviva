@@ -211,9 +211,9 @@ export function FeedPage() {
 
   return (
     <PageShell>
-      <div className="pv-panel overflow-hidden rounded-3xl">
-        <header className="pv-feed-header border-b border-primary/20">
-          <div className="flex items-end justify-between gap-3 px-5 pt-5">
+      <div>
+        <header className="border-b border-primary/20">
+          <div className="flex items-end justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Feed social</p>
               <h1 className="pv-title mt-1 text-xl font-bold text-secondary sm:text-2xl">Intenções e pedidos de oração</h1>
@@ -222,7 +222,7 @@ export function FeedPage() {
               <span className="mb-1 text-[11px] text-primary/70">Atualizando…</span>
             )}
           </div>
-          <nav className="mt-3 flex overflow-x-auto px-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Escopo do feed">
+          <nav className="mt-3 flex overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Escopo do feed">
             {tabs.map((tab) => {
               const active = tab.scope === scope
               return (
@@ -244,7 +244,7 @@ export function FeedPage() {
           <button
             type="button"
             onClick={() => navigate('/requests/new')}
-            className="pv-compose-box group flex w-full items-start gap-3 border-b border-primary/20 px-4 py-5 text-left sm:gap-4 sm:px-6 sm:py-6"
+            className="pv-compose-box group flex w-full items-start gap-3 border-b border-primary/20 py-5 text-left sm:gap-4 sm:py-6"
           >
             <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-bg text-base font-bold text-primary shadow-sm">
               {viewerInitial}
@@ -271,13 +271,13 @@ export function FeedPage() {
           {showSkeleton && <FeedSkeleton count={4} />}
 
           {isUnauthorized && activeTab.requiresAuth && (
-            <div className="px-5 py-6 text-sm text-secondary">
+            <div className="py-6 text-sm text-secondary">
               Você precisa entrar para visualizar o feed de {activeTab.label.toLowerCase()}.
             </div>
           )}
 
           {!query.isLoading && !isUnauthorized && items.length === 0 && (
-            <div className="px-5 py-10 text-center">
+            <div className="py-10 text-center">
               <p className="text-3xl" aria-hidden>🕊️</p>
               <p className="mt-2 text-sm font-semibold text-secondary">Ainda não há pedidos neste feed.</p>
               <p className="pv-muted mt-1 text-xs">Seja o primeiro a compartilhar uma intenção.</p>
@@ -307,7 +307,7 @@ export function FeedPage() {
         </div>
 
         {!isUnauthorized && !query.isLoading && items.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary/20 bg-panel/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex flex-col gap-3 border-t border-primary/20 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-primary">Página {page} de {totalPages}</p>
             <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex min-w-max items-center gap-1.5">

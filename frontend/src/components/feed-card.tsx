@@ -79,7 +79,7 @@ function FeedCardComponent({
   }
 
   return (
-    <article className={`pv-feed-row group relative flex gap-3 px-4 py-3.5 sm:px-5 ${isHit ? 'pv-card-hit' : ''}`}>
+    <article className={`pv-feed-row group relative flex gap-3 py-4 ${isHit ? 'pv-card-hit' : ''}`}>
       <Avatar user={authorUser} size="md" linkToProfile={!!item.authorUsername} />
 
       <div className="min-w-0 flex-1">

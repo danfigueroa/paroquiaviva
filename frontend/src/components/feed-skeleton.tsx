@@ -2,7 +2,7 @@ export function FeedSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div className="divide-y divide-primary/20" aria-hidden>
       {Array.from({ length: count }).map((_, idx) => (
-        <div key={idx} className="flex gap-3 px-4 py-3.5 sm:px-5">
+        <div key={idx} className="flex gap-3 py-4">
           <span className="pv-shimmer h-10 w-10 shrink-0 rounded-full" />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex items-center gap-2">
