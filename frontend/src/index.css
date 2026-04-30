@@ -115,6 +115,52 @@ a {
   box-shadow: 0 14px 34px rgba(var(--shadow-rgb), 0.2);
 }
 
+.pv-shell-column {
+  background: rgb(var(--panel-rgb));
+  border-left: 1px solid rgba(var(--primary-rgb), 0.12);
+  border-right: 1px solid rgba(var(--primary-rgb), 0.12);
+  box-shadow: 0 0 60px -20px rgba(var(--shadow-rgb), 0.18);
+}
+
+.pv-shell-header {
+  background: rgb(var(--panel-rgb));
+}
+
+.pv-shell-header::after {
+  content: '';
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--primary-rgb), 0.18) 18%,
+    rgba(var(--primary-rgb), 0.28) 50%,
+    rgba(var(--primary-rgb), 0.18) 82%,
+    transparent 100%
+  );
+}
+
+.pv-brand-mark {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(var(--primary-rgb), 0.18), transparent 65%),
+    linear-gradient(135deg, rgba(var(--primary-rgb), 0.16) 0%, rgba(var(--accent-rgb), 0.18) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.25);
+  box-shadow:
+    0 10px 26px -14px rgba(var(--fx-rgb), 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.group:hover .pv-brand-mark {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 32px -14px rgba(var(--fx-rgb), 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
 .pv-title {
   letter-spacing: -0.03em;
 }
