@@ -39,8 +39,10 @@ export function LandingPage() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6">
       <header className="mb-8 flex items-center justify-between rounded-2xl border border-primary bg-panel/90 p-4 backdrop-blur">
-        <Link to="/" className="flex items-center gap-3" aria-label="Creo — ir para o início">
-          <img src="/creo-icon.png" alt="" className="h-14 w-14 rounded-xl shadow-sm" />
+        <Link to="/" className="group flex items-center gap-3" aria-label="Creo — ir para o início">
+          <span className="pv-brand-mark inline-flex h-20 w-20 items-center justify-center rounded-2xl">
+            <img src="/creo-icon.png" alt="" className="h-16 w-16 rounded-xl object-contain" />
+          </span>
           <span className="text-3xl font-bold tracking-tight text-secondary">Creo</span>
         </Link>
         <div className="flex items-center gap-2">
