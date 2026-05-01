@@ -12,7 +12,7 @@ type AuthMode = 'signin' | 'signup'
 function translateAuthError(raw: string): string {
   const message = (raw || '').toLowerCase()
   if (message.includes('email not confirmed')) {
-    return 'Você ainda não confirmou seu e-mail. Abra o link que enviamos na sua caixa de entrada.'
+    return 'Você ainda não confirmou seu e-mail. Abra o link que enviamos na sua caixa de entrada — ou peça um novo abaixo.'
   }
   if (message.includes('invalid login credentials') || message.includes('invalid credentials')) {
     return 'E-mail ou senha incorretos.'
@@ -29,7 +29,25 @@ function translateAuthError(raw: string): string {
   if (message.includes('signup') && message.includes('disabled')) {
     return 'Cadastros estão desativados no momento.'
   }
+  if (message.includes('otp') && (message.includes('expired') || message.includes('invalid'))) {
+    return 'Este link expirou ou já foi usado. Peça um novo abaixo.'
+  }
   return raw || 'Algo deu errado. Tente novamente em instantes.'
+}
+
+function translateCallbackError(code: string, description: string): string {
+  const desc = (description || '').toLowerCase()
+  const c = (code || '').toLowerCase()
+  if (desc.includes('expired') || c.includes('expired')) {
+    return 'Este link expirou. Peça um novo abaixo e tente novamente.'
+  }
+  if (desc.includes('already') || desc.includes('used') || c === 'access_denied') {
+    return 'Este link já foi usado ou não é mais válido. Se já confirmou sua conta, tente entrar.'
+  }
+  if (description) {
+    return decodeURIComponent(description.replace(/\+/g, ' '))
+  }
+  return 'O link de e-mail não pôde ser validado. Peça um novo abaixo.'
 }
 
 export function AuthPage() {
@@ -46,28 +64,45 @@ export function AuthPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [info, setInfo] = useState('')
   const [error, setError] = useState('')
+  const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null)
   const supabase = getSupabaseClient()
 
   const nextPath = searchParams.get('next') || '/feed'
 
   useEffect(() => {
-    let isMounted = true
-
-    async function bootstrapSession() {
-      if (!supabase) {
-        return
-      }
-      const { data } = await supabase.auth.getSession()
-      const token = data.session?.access_token ?? null
-      if (token && isMounted) {
-        setAccessToken(token)
-        navigate(nextPath, { replace: true })
+    const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : ''
+    const hashParams = new URLSearchParams(hash)
+    const errorCode = searchParams.get('error') || hashParams.get('error') || ''
+    const errorDescription =
+      searchParams.get('error_description') || hashParams.get('error_description') || ''
+    if (errorCode || errorDescription) {
+      setError(translateCallbackError(errorCode, errorDescription))
+      if (window.location.hash) {
+        window.history.replaceState({}, '', window.location.pathname + window.location.search)
       }
     }
+  }, [searchParams])
 
-    bootstrapSession()
+  useEffect(() => {
+    if (!supabase) {
+      return
+    }
+    let active = true
+
+    const redirectIfSession = (token: string | null | undefined) => {
+      if (!active || !token) return
+      setAccessToken(token)
+      navigate(nextPath, { replace: true })
+    }
+
+    supabase.auth.getSession().then(({ data }) => redirectIfSession(data.session?.access_token))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      redirectIfSession(session?.access_token)
+    })
+
     return () => {
-      isMounted = false
+      active = false
+      sub.subscription.unsubscribe()
     }
   }, [navigate, nextPath, setAccessToken, supabase])
 
@@ -126,7 +161,10 @@ export function AuthPage() {
           setError(translateAuthError(signUpError.message))
           return
         }
-        setInfo('Conta criada. Enviamos um e-mail de confirmação — clique no link pra entrar.')
+        setPendingConfirmEmail(email.trim())
+        setInfo(
+          `Conta criada. Enviamos um link de confirmação para ${email.trim()}. Confira sua caixa de entrada (e a pasta de spam) e clique no botão para ativar sua conta.`
+        )
         return
       }
 
@@ -204,13 +242,41 @@ export function AuthPage() {
     setIsLoading(true)
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth`
+        redirectTo: `${window.location.origin}/auth/reset`
       })
       if (resetError) {
         setError(translateAuthError(resetError.message))
         return
       }
-      setInfo('E-mail de redefinição enviado com sucesso.')
+      setInfo('E-mail de redefinição enviado. Confira sua caixa de entrada (e o spam).')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function onResendConfirmation() {
+    setError('')
+    if (!supabase) {
+      setError('Configuração do Supabase ausente no frontend.')
+      return
+    }
+    const target = pendingConfirmEmail || email.trim()
+    if (!target) {
+      setError('Informe seu e-mail para reenviarmos o link de confirmação.')
+      return
+    }
+    setIsLoading(true)
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: target,
+        options: { emailRedirectTo: `${window.location.origin}/auth` }
+      })
+      if (resendError) {
+        setError(translateAuthError(resendError.message))
+        return
+      }
+      setInfo(`Reenviamos o link de confirmação para ${target}. Pode levar até 1 minuto.`)
     } finally {
       setIsLoading(false)
     }
@@ -369,6 +435,17 @@ export function AuthPage() {
             {error && <p role="alert" className="rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{error}</p>}
             {info && <p role="status" className="rounded-xl border border-primary bg-panel px-3 py-2 text-sm text-primary">{info}</p>}
           </div>
+        )}
+
+        {(pendingConfirmEmail || (error && error.toLowerCase().includes('expirou'))) && (
+          <button
+            type="button"
+            onClick={onResendConfirmation}
+            disabled={isLoading}
+            className="mt-3 text-xs font-semibold text-primary hover:text-secondary disabled:opacity-60"
+          >
+            Reenviar e-mail de confirmação
+          </button>
         )}
 
         <p className="pv-muted mt-auto pt-8 text-center text-xs">

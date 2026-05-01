@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { AuthPage } from '@/pages/auth-page'
+import { AuthResetPage } from '@/pages/auth-reset-page'
 import { PublicEntry, RequireAuth } from '@/app/route-guards'
 import { FeedSkeleton } from '@/components/feed-skeleton'
 
@@ -31,6 +32,7 @@ function lazyRoute(element: JSX.Element) {
 export const router = createBrowserRouter([
   { path: '/', element: <PublicEntry /> },
   { path: '/auth', element: <AuthPage /> },
+  { path: '/auth/reset', element: <AuthResetPage /> },
   {
     element: <RequireAuth />,
     children: [
