@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"strings"
 
 	"parish-viva/backend/internal/models"
@@ -1585,12 +1586,16 @@ func insertNotificationOn(ctx context.Context, exec notifyExec, in models.Create
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
+		log.Printf("notification insert failed: payload marshal type=%s user=%s err=%v", in.Type, in.UserID, err)
 		return err
 	}
 	_, err = exec.Exec(ctx, `
 		INSERT INTO notifications (user_id, type, actor_user_id, subject_type, subject_id, payload)
-		VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6::jsonb)
+		VALUES ($1::uuid, $2, NULLIF($3, '')::uuid, $4, $5::uuid, $6::jsonb)
 	`, in.UserID, string(in.Type), nullableStringValue(in.ActorUserID), string(in.SubjectType), in.SubjectID, payloadBytes)
+	if err != nil {
+		log.Printf("notification insert failed: type=%s user=%s subject_type=%s subject_id=%s err=%v", in.Type, in.UserID, in.SubjectType, in.SubjectID, err)
+	}
 	return err
 }
 
@@ -1600,13 +1605,18 @@ func insertNotificationOn(ctx context.Context, exec notifyExec, in models.Create
 func insertNotificationInTx(ctx context.Context, tx pgx.Tx, in models.CreateNotificationInput) error {
 	sub, err := tx.Begin(ctx)
 	if err != nil {
+		log.Printf("notification insert failed: in_tx savepoint begin type=%s user=%s err=%v", in.Type, in.UserID, err)
 		return err
 	}
 	if err := insertNotificationOn(ctx, sub, in); err != nil {
 		_ = sub.Rollback(ctx)
 		return err
 	}
-	return sub.Commit(ctx)
+	if err := sub.Commit(ctx); err != nil {
+		log.Printf("notification insert failed: in_tx savepoint commit type=%s user=%s err=%v", in.Type, in.UserID, err)
+		return err
+	}
+	return nil
 }
 
 func nullableStringValue(p *string) string {
