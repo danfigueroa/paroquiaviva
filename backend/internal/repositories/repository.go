@@ -1592,7 +1592,7 @@ func insertNotificationOn(ctx context.Context, exec notifyExec, in models.Create
 	_, err = exec.Exec(ctx, `
 		INSERT INTO notifications (user_id, type, actor_user_id, subject_type, subject_id, payload)
 		VALUES ($1::uuid, $2, NULLIF($3, '')::uuid, $4, $5::uuid, $6::jsonb)
-	`, in.UserID, string(in.Type), nullableStringValue(in.ActorUserID), string(in.SubjectType), in.SubjectID, payloadBytes)
+	`, in.UserID, string(in.Type), nullableStringValue(in.ActorUserID), string(in.SubjectType), in.SubjectID, string(payloadBytes))
 	if err != nil {
 		log.Printf("notification insert failed: type=%s user=%s subject_type=%s subject_id=%s err=%v", in.Type, in.UserID, in.SubjectType, in.SubjectID, err)
 	}
