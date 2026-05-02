@@ -154,7 +154,7 @@ export function NotificationBell() {
   const items = listQuery.data?.items ?? []
   const badge = useMemo(() => {
     if (!unreadCount) return null
-    return unreadCount > 9 ? '9+' : String(unreadCount)
+    return unreadCount > 99 ? '99+' : String(unreadCount)
   }, [unreadCount])
 
   function handleItemClick(n: Notification) {
@@ -188,7 +188,10 @@ export function NotificationBell() {
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </svg>
         {badge && (
-          <span className="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-onPrimary">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none tabular-nums tracking-tight text-onPrimary ring-2 ring-[var(--bg)] shadow-[0_2px_4px_-1px_rgba(var(--shadow-rgb),0.4)]"
+          >
             {badge}
           </span>
         )}
